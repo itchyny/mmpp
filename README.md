@@ -1,0 +1,1 @@
+# Mackerel graph pretty printer
