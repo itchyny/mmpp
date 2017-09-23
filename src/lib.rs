@@ -139,49 +139,60 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
 mod tests {
     use super::*;
 
+    fn test_cases() -> Vec<(&'static str, Metric, &'static str)> {
+        vec![("host(22CXRB3pZmu, loadavg5)", Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()), "host(22CXRB3pZmu, loadavg5)"),
+             ("host ( 22CXRB3pZmu, cpu.user.percentage )",
+              Metric::HostMetric("22CXRB3pZmu".to_string(), "cpu.user.percentage".to_string()),
+              "host(22CXRB3pZmu, cpu.user.percentage)"),
+             ("host('22CXRB3pZmu', memory.*)", Metric::HostMetric("22CXRB3pZmu".to_string(), "memory.*".to_string()), "host(22CXRB3pZmu, memory.*)"),
+             ("host ( '22CXRB3pZmu', 'custom.foo.bar.*' )",
+              Metric::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string()),
+              "host(22CXRB3pZmu, custom.foo.bar.*)"),
+             ("host ( \"22CXRB3pZmu\",\"custom.foo.bar.*\")",
+              Metric::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string()),
+              "host(22CXRB3pZmu, custom.foo.bar.*)"),
+             ("service ( 'Blog', \"custom.access_count.*\")",
+              Metric::ServiceMetric("Blog".to_string(), "custom.access_count.*".to_string()),
+              "service(Blog, custom.access_count.*)"),
+             ("role(Blog:db, memory.*)", Metric::RoleMetric("Blog".to_string(), "db".to_string(), "memory.*".to_string()), "role(Blog:db, memory.*)"),
+             ("role (  'Blog:  db' , 'memory.*'  ) ",
+              Metric::RoleMetric("Blog".to_string(), "db".to_string(), "memory.*".to_string()),
+              "role(Blog:db, memory.*)"),
+             ("roleSlots (  Blog:db , loadavg5  ) ",
+              Metric::RoleSlotMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string()),
+              "roleSlots(Blog:db, loadavg5)"),
+             ("avg(group(host(22CXRB3pZmu, loadavg5), host(22CXRB3pZmv, loadavg5)))",
+              Metric::AvgMetric(Box::new(Metric::GroupMetric(vec![Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
+                                                                  Metric::HostMetric("22CXRB3pZmv".to_string(), "loadavg5".to_string())]))),
+              "avg(\n  group(\n    host(22CXRB3pZmu, loadavg5),\n    host(22CXRB3pZmv, loadavg5)\n  )\n)"),
+             ("max(role(Blog:db, loadavg5))",
+              Metric::MaxMetric(Box::new(Metric::RoleMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))),
+              "max(role(Blog:db, loadavg5))"),
+             ("min(role(Blog:db, loadavg5))",
+              Metric::MinMetric(Box::new(Metric::RoleMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))),
+              "min(role(Blog:db, loadavg5))"),
+             ("group(\n  host(22CXRB3pZmu, loadavg5),\n  group(\n    service(Blog, access_count.*),\n    roleSlots(Blog:db, loadavg5)\n  )\n)",
+              Metric::GroupMetric(vec![Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
+                                       Metric::GroupMetric(vec![Metric::ServiceMetric("Blog".to_string(), "access_count.*".to_string()),
+                                                                Metric::RoleSlotMetric("Blog".to_string(),
+                                                                                       "db".to_string(),
+                                                                                       "loadavg5".to_string())])]),
+              "group(\n  host(22CXRB3pZmu, loadavg5),\n  group(\n    service(Blog, access_count.*),\n    roleSlots(Blog:db, loadavg5)\n  )\n)")]
+    }
+
     #[test]
     fn test_parse_graph() {
-        let sources =
-            vec![("host(22CXRB3pZmu, loadavg5)", Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string())),
-                 ("host(22CXRB3pZmu, cpu.user.percentage)",
-                  Metric::HostMetric("22CXRB3pZmu".to_string(), "cpu.user.percentage".to_string())),
-                 ("host('22CXRB3pZmu', memory.*)", Metric::HostMetric("22CXRB3pZmu".to_string(), "memory.*".to_string())),
-                 ("host ( '22CXRB3pZmu', 'custom.foo.bar.*' )",
-                  Metric::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string())),
-                 ("host ( \"22CXRB3pZmu\",\"custom.foo.bar.*\")",
-                  Metric::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string())),
-                 ("service ( 'Blog', \"custom.access_count.*\")",
-                  Metric::ServiceMetric("Blog".to_string(), "custom.access_count.*".to_string())),
-                 ("role(Blog:db, memory.*)",
-                  Metric::RoleMetric("Blog".to_string(), "db".to_string(), "memory.*".to_string())),
-                 ("role (  'Blog:  db' , 'memory.*'  ) ",
-                  Metric::RoleMetric("Blog".to_string(), "db".to_string(), "memory.*".to_string())),
-                 ("roleSlots (  Blog:db , loadavg5  ) ",
-                  Metric::RoleSlotMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string())),
-                 ("avg(group(host(22CXRB3pZmu, loadavg5), host(22CXRB3pZmv, loadavg5)))",
-                  Metric::AvgMetric(Box::new(Metric::GroupMetric(vec![Metric::HostMetric("22CXRB3pZmu".to_string(),
-                                                                                         "loadavg5".to_string()),
-                                                                      Metric::HostMetric("22CXRB3pZmv".to_string(),
-                                                                                         "loadavg5".to_string())])))),
-                 ("max(role(Blog:db, loadavg5))",
-                  Metric::MaxMetric(Box::new(Metric::RoleMetric("Blog".to_string(),
-                                                                "db".to_string(),
-                                                                "loadavg5".to_string())))),
-                 ("min(role(Blog:db, loadavg5))",
-                  Metric::MinMetric(Box::new(Metric::RoleMetric("Blog".to_string(),
-                                                                "db".to_string(),
-                                                                "loadavg5".to_string())))),
-                 ("group(host(22CXRB3pZmu, loadavg5), group(service(Blog, access_count.*), roleSlots(Blog:db, loadavg5)))",
-                  Metric::GroupMetric(vec![Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
-                                           Metric::GroupMetric(vec![Metric::ServiceMetric("Blog".to_string(),
-                                                                                          "access_count.*"
-                                                                                              .to_string()),
-                                                                    Metric::RoleSlotMetric("Blog".to_string(),
-                                                                                           "db".to_string(),
-                                                                                           "loadavg5".to_string())])]))];
-        for (source, expected) in sources {
+        for (source, metric, _) in test_cases() {
             let got = parse_graph(source);
-            assert_eq!(got, Ok(expected));
+            assert_eq!(got, Ok(metric));
+        }
+    }
+
+    #[test]
+    fn test_pretty_print() {
+        for (_, metric, pretty) in test_cases() {
+            let got = pretty_print(metric);
+            assert_eq!(got, pretty);
         }
     }
 }
