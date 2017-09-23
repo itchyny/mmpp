@@ -8,7 +8,7 @@ use pest::inputs::Input;
 
 #[derive(Parser)]
 #[grammar = "metrics.pest"]
-pub struct GraphParser;
+pub struct MetricParser;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Metric {
@@ -22,8 +22,8 @@ pub enum Metric {
     GroupMetric(Vec<Metric>),
 }
 
-pub fn parse_graph(src: &str) -> Result<Metric, String> {
-    let mut pairs = GraphParser::parse_str(Rule::whole_metrics, src).map_err(|e| format!("{}", e))?;
+pub fn parse_metric(src: &str) -> Result<Metric, String> {
+    let mut pairs = MetricParser::parse_str(Rule::whole_metrics, src).map_err(|e| format!("{}", e))?;
     convert_metrics(pairs.next().ok_or("metrics")?.into_inner().next().unwrap())
 }
 
@@ -181,9 +181,9 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_graph() {
+    fn test_parse_metric() {
         for (source, metric, _) in test_cases() {
-            let got = parse_graph(source);
+            let got = parse_metric(source);
             assert_eq!(got, Ok(metric));
         }
     }

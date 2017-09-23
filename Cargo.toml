@@ -1,9 +1,9 @@
 [package]
-name = "mgpp"
+name = "mmpp"
 version = "0.0.0"
 authors = ["itchyny <itchyny@hatena.ne.jp>"]
-description = "Mackerel graph pretty printer"
-repository = "https://github.com/itchyny/mgpp"
+description = "Mackerel metric pretty printer"
+repository = "https://github.com/itchyny/mmpp"
 readme = "README.md"
 license = "MIT"
 keywords = ["cli", "mackerel"]
