@@ -81,7 +81,9 @@ group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 
 stack_metric = { "stack" ~ "(" ~ metrics ~ ")" }
 
-display_name = ${ "'" ~ display_name_single_inner ~ "'" | "\"" ~ display_name_doble_inner ~ "\"" }
+display_name = ${ display_name_no_quote | "'" ~ display_name_single_inner ~ "'" | "\"" ~ display_name_doble_inner ~ "\"" }
+display_name_no_quote = @{ display_name_no_quote_inner ~ ( " "+ ~ display_name_no_quote_inner )* }
+display_name_no_quote_inner = @{ ( !( " " | "\t" | "\r" | "\n" | "'" | "\"" | "(" | "," | ")" ) ~ any )+ }
 display_name_single_inner = @{ ( !"'" ~ any )* }
 display_name_doble_inner = @{ ( !"\"" ~ any )* }
 
