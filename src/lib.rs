@@ -19,6 +19,7 @@ pub enum Metric {
     AvgMetric(Box<Metric>),
     MaxMetric(Box<Metric>),
     MinMetric(Box<Metric>),
+    ProductMetric(Box<Metric>),
     GroupMetric(Vec<Metric>),
 }
 
@@ -69,6 +70,10 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
             let mut inner = pair.into_inner();
             Ok(Metric::MinMetric(Box::new(convert_metrics(inner.next().unwrap())?)))
         }
+        Rule::product_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::ProductMetric(Box::new(convert_metrics(inner.next().unwrap())?)))
+        }
         Rule::group_metric => {
             let mut metrics = Vec::new();
             for r in pair.into_inner() {
@@ -90,6 +95,7 @@ fn calc_depth(metric: Metric) -> u64 {
         Metric::AvgMetric(metric) => 1 + calc_depth(*metric),
         Metric::MaxMetric(metric) => 1 + calc_depth(*metric),
         Metric::MinMetric(metric) => 1 + calc_depth(*metric),
+        Metric::ProductMetric(metric) => 1 + calc_depth(*metric),
         Metric::GroupMetric(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
         _ => 1,
     }
@@ -121,6 +127,13 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
                 format!("min({})", pretty_print_inner(*metric, depth - 1, 0))
             } else {
                 format!("min(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
+            }
+        }
+        Metric::ProductMetric(metric) => {
+            if depth <= 2 {
+                format!("product({})", pretty_print_inner(*metric, depth - 1, 0))
+            } else {
+                format!("product(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
             }
         }
         Metric::GroupMetric(metrics) => {
@@ -171,6 +184,10 @@ mod tests {
              ("min(role(Blog:db, loadavg5))",
               Metric::MinMetric(Box::new(Metric::RoleMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))),
               "min(role(Blog:db, loadavg5))"),
+             ("product(group(service(Blog, foo.bar), service(Blog, foo.baz)))",
+              Metric::ProductMetric(Box::new(Metric::GroupMetric(vec![Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string()),
+                                                                      Metric::ServiceMetric("Blog".to_string(), "foo.baz".to_string())]))),
+              "product(\n  group(\n    service(Blog, foo.bar),\n    service(Blog, foo.baz)\n  )\n)"),
              ("group(\n  host(22CXRB3pZmu, loadavg5),\n  group(\n    service(Blog, access_count.*),\n    roleSlots(Blog:db, loadavg5)\n  )\n)",
               Metric::GroupMetric(vec![Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
                                        Metric::GroupMetric(vec![Metric::ServiceMetric("Blog".to_string(), "access_count.*".to_string()),
