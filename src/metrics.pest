@@ -13,6 +13,7 @@ metrics = { (
   | divide_metric
   | scale_metric
   | offset_metric
+  | percentile_metric
   | group_metric
 ) }
 
@@ -56,6 +57,8 @@ fraction = { double ~ "/" ~ double }
 scale_metric = { "scale" ~ "(" ~ metrics ~ "," ~ factor ~ ")" }
 
 offset_metric = { "offset" ~ "(" ~ metrics ~ "," ~ factor ~ ")" }
+
+percentile_metric = { "percentile" ~ "(" ~ metrics ~ "," ~ double ~ ")" }
 
 group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 

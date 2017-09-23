@@ -24,6 +24,7 @@ pub enum Metric {
     DivideMetric(Box<Metric>, Box<Metric>),
     ScaleMetric(Box<Metric>, Factor),
     OffsetMetric(Box<Metric>, Factor),
+    PercentileMetric(Box<Metric>, Percentage),
     GroupMetric(Vec<Metric>),
 }
 
@@ -32,6 +33,9 @@ pub enum Factor {
     Double(String),
     Fraction(String, String),
 }
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Percentage(String);
 
 pub fn parse_metric(src: &str) -> Result<Metric, String> {
     let mut pairs = MetricParser::parse_str(Rule::whole_metrics, src).map_err(|e| format!("{}", e))?;
@@ -112,6 +116,13 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
                 convert_factor(inner.next().unwrap().into_inner().next().unwrap())?,
             ))
         }
+        Rule::percentile_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::PercentileMetric(
+                Box::new(convert_metrics(inner.next().unwrap())?),
+                convert_percentage(inner.next().unwrap())?,
+            ))
+        }
         Rule::group_metric => {
             let mut metrics = Vec::new();
             for r in pair.into_inner() {
@@ -138,6 +149,13 @@ fn convert_factor<I: Input>(pair: Pair<Rule, I>) -> Result<Factor, String> {
     }
 }
 
+fn convert_percentage<I: Input>(pair: Pair<Rule, I>) -> Result<Percentage, String> {
+    match pair.as_rule() {
+        Rule::double => Ok(Percentage(pair.as_str().to_string())),
+        r => Err(format!("invalid percentage: {:?}", r)),
+    }
+}
+
 pub fn pretty_print(metric: Metric) -> String {
     pretty_print_inner(metric.clone(), calc_depth(metric), 0)
 }
@@ -152,6 +170,7 @@ fn calc_depth(metric: Metric) -> u64 {
         Metric::DivideMetric(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
         Metric::ScaleMetric(metric, _) => 1 + calc_depth(*metric),
         Metric::OffsetMetric(metric, _) => 1 + calc_depth(*metric),
+        Metric::PercentileMetric(metric, _) => 1 + calc_depth(*metric),
         Metric::GroupMetric(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
         _ => 1,
     }
@@ -218,6 +237,21 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
                 indent_str
             )
         },
+        Metric::PercentileMetric(metric, percentage) => if depth <= 2 {
+            format!(
+                "percentile({}, {})",
+                pretty_print_inner(*metric, depth - 1, 0),
+                pretty_print_percentage(percentage)
+            )
+        } else {
+            format!(
+                "percentile(\n{},\n  {}{}\n{})",
+                pretty_print_inner(*metric, depth - 1, indent + 1),
+                indent_str,
+                pretty_print_percentage(percentage),
+                indent_str
+            )
+        },
         Metric::GroupMetric(metrics) => format!(
             "group(\n{}\n{})",
             metrics
@@ -235,6 +269,12 @@ fn pretty_print_factor(factor: Factor) -> String {
     match factor {
         Factor::Double(s) => s,
         Factor::Fraction(nume, deno) => format!("{}/{}", nume, deno),
+    }
+}
+
+fn pretty_print_percentage(percentage: Percentage) -> String {
+    match percentage {
+        Percentage(s) => s,
     }
 }
 
@@ -368,6 +408,14 @@ mod tests {
                     Factor::Fraction("-31.4".to_string(), "6.25".to_string()),
                 ),
                 "offset(\n  offset(service(Blog, foo.bar), 3.140e10),\n  -31.4/6.25\n)",
+            ),
+            (
+                "percentile( role('Blog:db', 'loadavg5') , 75.5)",
+                Metric::PercentileMetric(
+                    Box::new(Metric::RoleMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string())),
+                    Percentage("75.5".to_string()),
+                ),
+                "percentile(role(Blog:db, loadavg5), 75.5)",
             ),
             (
                 "group(host(22CXRB3pZmu, loadavg5), group(service(Blog, access_count.*), roleSlots(Blog:db, loadavg5)))",
