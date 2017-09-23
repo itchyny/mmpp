@@ -17,6 +17,7 @@ metrics = { (
   | time_shift_metric
   | moving_average_metric
   | linear_regression_metric
+  | time_left_forecast_metric
   | group_metric
 ) }
 
@@ -71,6 +72,8 @@ time_shift_metric = { "timeShift" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")"
 moving_average_metric = { "movingAverage" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")" }
 
 linear_regression_metric = { "linearRegression" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")" }
+
+time_left_forecast_metric = { "timeLeftForecast" ~ "(" ~ metrics ~ "," ~ duration_literal ~ "," ~ factor ~ ")" }
 
 group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 

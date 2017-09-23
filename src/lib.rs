@@ -28,6 +28,7 @@ pub enum Metric {
     TimeShift(Box<Metric>, Duration),
     MovingAverage(Box<Metric>, Duration),
     LinearRegression(Box<Metric>, Duration),
+    TimeLeftForecast(Box<Metric>, Duration, Factor),
     Group(Vec<Metric>),
 }
 
@@ -156,6 +157,14 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
                 convert_duration(arg!(inner))?,
             ))
         }
+        Rule::time_left_forecast_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::TimeLeftForecast(
+                Box::new(convert_metrics(next!(inner))?),
+                convert_duration(arg!(inner))?,
+                convert_factor(arg!(inner))?,
+            ))
+        }
         Rule::group_metric => {
             let mut metrics = Vec::new();
             for r in pair.into_inner() {
@@ -211,6 +220,7 @@ fn calc_depth(metric: Metric) -> u64 {
         Metric::TimeShift(metric, _) => 1 + calc_depth(*metric),
         Metric::MovingAverage(metric, _) => 1 + calc_depth(*metric),
         Metric::LinearRegression(metric, _) => 1 + calc_depth(*metric),
+        Metric::TimeLeftForecast(metric, _, _) => 1 + calc_depth(*metric),
         Metric::Group(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
         _ => 1,
     }
@@ -337,6 +347,15 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
                 indent_str
             )
         },
+        Metric::TimeLeftForecast(metric, duration, threshold) => format!(
+            "timeLeftForecast(\n{},\n  {}{},\n  {}{}\n{})",
+            pretty_print_inner(*metric, depth - 1, indent + 1),
+            indent_str,
+            pretty_print_duration(duration),
+            indent_str,
+            pretty_print_factor(threshold),
+            indent_str
+        ),
         Metric::Group(metrics) => format!(
             "group(\n{}\n{})",
             metrics
@@ -542,6 +561,18 @@ mod tests {
                     Duration("7d".to_string()),
                 ),
                 "linearRegression(host(22CXRB3pZmu, filesystem.drive.used), 7d)",
+            ),
+            (
+                "scale(timeLeftForecast(host(22CXRB3pZmu, filesystem.drive.used), 3mo, 2000000000000), 1/86400)",
+                Metric::Scale(
+                    Box::new(Metric::TimeLeftForecast(
+                        Box::new(Metric::Host("22CXRB3pZmu".to_string(), "filesystem.drive.used".to_string())),
+                        Duration("3mo".to_string()),
+                        Factor::Double("2000000000000".to_string()),
+                    )),
+                    Factor::Fraction("1".to_string(), "86400".to_string()),
+                ),
+                "scale(\n  timeLeftForecast(\n    host(22CXRB3pZmu, filesystem.drive.used),\n    3mo,\n    2000000000000\n  ),\n  1/86400\n)",
             ),
             (
                 "group(host(22CXRB3pZmu, loadavg5), group(service(Blog, access_count.*), roleSlots(Blog:db, loadavg5)))",
