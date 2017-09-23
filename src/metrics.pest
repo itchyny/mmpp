@@ -1,4 +1,4 @@
-graph = { soi ~ metrics ~ eoi }
+whole_metrics = { soi ~ metrics ~ eoi }
 
 metrics = { (
     host_metric
