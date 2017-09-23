@@ -11,6 +11,7 @@ metrics = { (
   | product_metric
   | diff_metric
   | divide_metric
+  | scale_metric
   | group_metric
 ) }
 
@@ -46,6 +47,12 @@ product_metric = { "product" ~ "(" ~ metrics ~ ")" }
 diff_metric = { "diff" ~ "(" ~ metrics ~ "," ~ metrics ~ ")" }
 
 divide_metric = { "divide" ~ "(" ~ metrics ~ "," ~ metrics ~ ")" }
+
+factor = { ( fraction | double ) }
+double = @{ "-"? ~ ( '0'..'9'+ ~ ( "." ~ '0'..'9'* )? | '0'..'9'* ~ "." ~ '0'..'9'+ ) ~ ( ( "e" | "E" ) ~ ( "+" | "-" )? ~ '0'..'9'+ )? }
+fraction = { double ~ "/" ~ double }
+
+scale_metric = { "scale" ~ "(" ~ metrics ~ "," ~ factor ~ ")" }
 
 group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 

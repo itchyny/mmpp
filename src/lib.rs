@@ -22,7 +22,14 @@ pub enum Metric {
     ProductMetric(Box<Metric>),
     DiffMetric(Box<Metric>, Box<Metric>),
     DivideMetric(Box<Metric>, Box<Metric>),
+    ScaleMetric(Box<Metric>, Factor),
     GroupMetric(Vec<Metric>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum Factor {
+    Double(String),
+    Fraction(String, String),
 }
 
 pub fn parse_metric(src: &str) -> Result<Metric, String> {
@@ -90,6 +97,13 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
                 Box::new(convert_metrics(inner.next().unwrap())?),
             ))
         }
+        Rule::scale_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::ScaleMetric(
+                Box::new(convert_metrics(inner.next().unwrap())?),
+                convert_factor(inner.next().unwrap().into_inner().next().unwrap())?,
+            ))
+        }
         Rule::group_metric => {
             let mut metrics = Vec::new();
             for r in pair.into_inner() {
@@ -99,6 +113,20 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
         }
         Rule::metrics => convert_metrics(pair.into_inner().next().unwrap()),
         _ => unreachable!(),
+    }
+}
+
+fn convert_factor<I: Input>(pair: Pair<Rule, I>) -> Result<Factor, String> {
+    match pair.as_rule() {
+        Rule::double => Ok(Factor::Double(pair.as_str().to_string())),
+        Rule::fraction => {
+            let mut inner = pair.into_inner();
+            Ok(Factor::Fraction(
+                inner.next().unwrap().as_str().to_string(),
+                inner.next().unwrap().as_str().to_string(),
+            ))
+        }
+        r => Err(format!("invalid factor: {:?}", r)),
     }
 }
 
@@ -114,6 +142,7 @@ fn calc_depth(metric: Metric) -> u64 {
         Metric::ProductMetric(metric) => 1 + calc_depth(*metric),
         Metric::DiffMetric(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
         Metric::DivideMetric(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
+        Metric::ScaleMetric(metric, _) => 1 + calc_depth(*metric),
         Metric::GroupMetric(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
         _ => 1,
     }
@@ -158,6 +187,17 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
             pretty_print_inner(*metric2, depth - 1, indent + 1),
             indent_str
         ),
+        Metric::ScaleMetric(metric, factor) => if depth <= 2 {
+            format!("scale({}, {})", pretty_print_inner(*metric, depth - 1, 0), pretty_print_factor(factor))
+        } else {
+            format!(
+                "scale(\n{},\n  {}{}\n{})",
+                pretty_print_inner(*metric, depth - 1, indent + 1),
+                indent_str,
+                pretty_print_factor(factor),
+                indent_str
+            )
+        },
         Metric::GroupMetric(metrics) => format!(
             "group(\n{}\n{})",
             metrics
@@ -169,6 +209,13 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
         ),
     };
     format!("{}{}", indent_str, metric_str)
+}
+
+fn pretty_print_factor(factor: Factor) -> String {
+    match factor {
+        Factor::Double(s) => s,
+        Factor::Fraction(nume, deno) => format!("{}/{}", nume, deno),
+    }
 }
 
 #[cfg(test)]
@@ -265,6 +312,25 @@ mod tests {
                 "divide(\n  service(Blog, foo.bar),\n  service(Blog, foo.baz)\n)",
             ),
             (
+                "scale ( service ( Blog , foo.bar ) , 10.0 )",
+                Metric::ScaleMetric(
+                    Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                    Factor::Double("10.0".to_string()),
+                ),
+                "scale(service(Blog, foo.bar), 10.0)",
+            ),
+            (
+                "scale(scale(service('Blog', 'foo.bar'), 3.140e10), -31.4/6.25)",
+                Metric::ScaleMetric(
+                    Box::new(Metric::ScaleMetric(
+                        Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                        Factor::Double("3.140e10".to_string()),
+                    )),
+                    Factor::Fraction("-31.4".to_string(), "6.25".to_string()),
+                ),
+                "scale(\n  scale(service(Blog, foo.bar), 3.140e10),\n  -31.4/6.25\n)",
+            ),
+            (
                 "group(host(22CXRB3pZmu, loadavg5), group(service(Blog, access_count.*), roleSlots(Blog:db, loadavg5)))",
                 Metric::GroupMetric(vec![
                     Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
@@ -291,6 +357,7 @@ mod tests {
         for (_, metric, pretty) in test_cases() {
             let got = pretty_print(metric);
             assert_eq!(got, pretty);
+            assert_eq!(pretty_print(parse_metric(got.as_ref()).unwrap()), pretty);
         }
     }
 }
