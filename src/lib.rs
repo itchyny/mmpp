@@ -10,7 +10,7 @@ use pest::inputs::Input;
 #[grammar = "metrics.pest"]
 pub struct GraphParser;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Metric {
     HostMetric(String, String),
     ServiceMetric(String, String),
