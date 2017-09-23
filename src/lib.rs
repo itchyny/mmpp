@@ -25,6 +25,7 @@ pub enum Metric {
     ScaleMetric(Box<Metric>, Factor),
     OffsetMetric(Box<Metric>, Factor),
     PercentileMetric(Box<Metric>, Percentage),
+    TimeShiftMetric(Box<Metric>, Duration),
     GroupMetric(Vec<Metric>),
 }
 
@@ -36,6 +37,9 @@ pub enum Factor {
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Percentage(String);
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Duration(String);
 
 pub fn parse_metric(src: &str) -> Result<Metric, String> {
     let mut pairs = MetricParser::parse_str(Rule::whole_metrics, src).map_err(|e| format!("{}", e))?;
@@ -123,6 +127,13 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
                 convert_percentage(inner.next().unwrap())?,
             ))
         }
+        Rule::time_shift_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::TimeShiftMetric(
+                Box::new(convert_metrics(inner.next().unwrap())?),
+                convert_duration(inner.next().unwrap().into_inner().next().unwrap())?,
+            ))
+        }
         Rule::group_metric => {
             let mut metrics = Vec::new();
             for r in pair.into_inner() {
@@ -156,6 +167,13 @@ fn convert_percentage<I: Input>(pair: Pair<Rule, I>) -> Result<Percentage, Strin
     }
 }
 
+fn convert_duration<I: Input>(pair: Pair<Rule, I>) -> Result<Duration, String> {
+    match pair.as_rule() {
+        Rule::duration => Ok(Duration(pair.as_str().to_string())),
+        r => Err(format!("invalid percentage: {:?}", r)),
+    }
+}
+
 pub fn pretty_print(metric: Metric) -> String {
     pretty_print_inner(metric.clone(), calc_depth(metric), 0)
 }
@@ -171,6 +189,7 @@ fn calc_depth(metric: Metric) -> u64 {
         Metric::ScaleMetric(metric, _) => 1 + calc_depth(*metric),
         Metric::OffsetMetric(metric, _) => 1 + calc_depth(*metric),
         Metric::PercentileMetric(metric, _) => 1 + calc_depth(*metric),
+        Metric::TimeShiftMetric(metric, _) => 1 + calc_depth(*metric),
         Metric::GroupMetric(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
         _ => 1,
     }
@@ -252,6 +271,21 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
                 indent_str
             )
         },
+        Metric::TimeShiftMetric(metric, duration) => if depth <= 2 {
+            format!(
+                "timeShift({}, {})",
+                pretty_print_inner(*metric, depth - 1, 0),
+                pretty_print_duration(duration),
+            )
+        } else {
+            format!(
+                "timeShift(\n{},\n  {}{}\n{})",
+                pretty_print_inner(*metric, depth - 1, indent + 1),
+                indent_str,
+                pretty_print_duration(duration),
+                indent_str
+            )
+        },
         Metric::GroupMetric(metrics) => format!(
             "group(\n{}\n{})",
             metrics
@@ -275,6 +309,12 @@ fn pretty_print_factor(factor: Factor) -> String {
 fn pretty_print_percentage(percentage: Percentage) -> String {
     match percentage {
         Percentage(s) => s,
+    }
+}
+
+fn pretty_print_duration(duration: Duration) -> String {
+    match duration {
+        Duration(s) => s,
     }
 }
 
@@ -416,6 +456,25 @@ mod tests {
                     Percentage("75.5".to_string()),
                 ),
                 "percentile(role(Blog:db, loadavg5), 75.5)",
+            ),
+            (
+                "timeShift(service(Blog, foo.bar), 1d)",
+                Metric::TimeShiftMetric(
+                    Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                    Duration("1d".to_string()),
+                ),
+                "timeShift(service(Blog, foo.bar), 1d)",
+            ),
+            (
+                "timeShift(offset(service(Blog, foo.bar), 10.0), 1h)",
+                Metric::TimeShiftMetric(
+                    Box::new(Metric::OffsetMetric(
+                        Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                        Factor::Double("10.0".to_string()),
+                    )),
+                    Duration("1h".to_string()),
+                ),
+                "timeShift(\n  offset(service(Blog, foo.bar), 10.0),\n  1h\n)",
             ),
             (
                 "group(host(22CXRB3pZmu, loadavg5), group(service(Blog, access_count.*), roleSlots(Blog:db, loadavg5)))",
