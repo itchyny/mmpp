@@ -30,6 +30,7 @@ pub enum Metric {
     LinearRegression(Box<Metric>, Duration),
     TimeLeftForecast(Box<Metric>, Duration, Factor),
     Group(Vec<Metric>),
+    Stack(Box<Metric>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -172,6 +173,10 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
             }
             Ok(Metric::Group(metrics))
         }
+        Rule::stack_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::Stack(Box::new(convert_metrics(next!(inner))?)))
+        }
         Rule::metrics => convert_metrics(next!(pair.into_inner())),
         _ => unreachable!(),
     }
@@ -222,6 +227,7 @@ fn calc_depth(metric: Metric) -> u64 {
         Metric::LinearRegression(metric, _) => 1 + calc_depth(*metric),
         Metric::TimeLeftForecast(metric, _, _) => 1 + calc_depth(*metric),
         Metric::Group(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
+        Metric::Stack(metric) => 1 + calc_depth(*metric),
         _ => 1,
     }
 }
@@ -365,6 +371,11 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
                 .join(",\n"),
             indent_str
         ),
+        Metric::Stack(metric) => if depth <= 2 {
+            format!("stack({})", pretty_print_inner(*metric, depth - 1, 0))
+        } else {
+            format!("stack(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
+        },
     };
     format!("{}{}", indent_str, metric_str)
 }
@@ -584,6 +595,19 @@ mod tests {
                     ]),
                 ]),
                 "group(\n  host(22CXRB3pZmu, loadavg5),\n  group(\n    service(Blog, access_count.*),\n    roleSlots(Blog:db, loadavg5)\n  )\n)",
+            ),
+            (
+                "stack(role(Blog:db, loadavg5))",
+                Metric::Stack(Box::new(Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))),
+                "stack(role(Blog:db, loadavg5))",
+            ),
+            (
+                "stack(group(role(Blog:db-master, loadavg5), role(Blog:db-slave, loadavg5)))",
+                Metric::Stack(Box::new(Metric::Group(vec![
+                    Metric::Role("Blog".to_string(), "db-master".to_string(), "loadavg5".to_string()),
+                    Metric::Role("Blog".to_string(), "db-slave".to_string(), "loadavg5".to_string()),
+                ]))),
+                "stack(\n  group(\n    role(Blog:db-master, loadavg5),\n    role(Blog:db-slave, loadavg5)\n  )\n)",
             ),
         ]
     }
