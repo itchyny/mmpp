@@ -81,6 +81,60 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
     }
 }
 
+pub fn pretty_print(metric: Metric) -> String {
+    pretty_print_inner(metric.clone(), calc_depth(metric), 0)
+}
+
+fn calc_depth(metric: Metric) -> u64 {
+    match metric {
+        Metric::AvgMetric(metric) => 1 + calc_depth(*metric),
+        Metric::MaxMetric(metric) => 1 + calc_depth(*metric),
+        Metric::MinMetric(metric) => 1 + calc_depth(*metric),
+        Metric::GroupMetric(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
+        _ => 1,
+    }
+}
+
+fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
+    let indent_str = " ".repeat(indent * 2);
+    let metric_str = match metric {
+        Metric::HostMetric(host_id, metric_name) => format!("host({}, {})", host_id, metric_name),
+        Metric::ServiceMetric(service_name, metric_name) => format!("service({}, {})", service_name, metric_name),
+        Metric::RoleMetric(service_name, role_name, metric_name) => format!("role({}:{}, {})", service_name, role_name, metric_name),
+        Metric::RoleSlotMetric(service_name, role_name, metric_name) => format!("roleSlots({}:{}, {})", service_name, role_name, metric_name),
+        Metric::AvgMetric(metric) => {
+            if depth <= 2 {
+                format!("avg({})", pretty_print_inner(*metric, depth - 1, 0))
+            } else {
+                format!("avg(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
+            }
+        }
+        Metric::MaxMetric(metric) => {
+            if depth <= 2 {
+                format!("max({})", pretty_print_inner(*metric, depth - 1, 0))
+            } else {
+                format!("max(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
+            }
+        }
+        Metric::MinMetric(metric) => {
+            if depth <= 2 {
+                format!("min({})", pretty_print_inner(*metric, depth - 1, 0))
+            } else {
+                format!("min(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
+            }
+        }
+        Metric::GroupMetric(metrics) => {
+            format!("group(\n{}\n{})",
+                    metrics.iter()
+                        .map(|metric| pretty_print_inner(metric.clone(), depth - 1, indent + 1))
+                        .collect::<Vec<_>>()
+                        .join(",\n"),
+                    indent_str)
+        }
+    };
+    format!("{}{}", indent_str, metric_str)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
