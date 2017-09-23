@@ -3,6 +3,8 @@ extern crate pest;
 extern crate pest_derive;
 
 use pest::Parser;
+use pest::iterators::Pair;
+use pest::inputs::Input;
 
 #[derive(Parser)]
 #[grammar = "graph.pest"]
@@ -14,11 +16,15 @@ pub enum Graph {
     ServiceMetric(String, String),
     RoleMetric(String, String, String),
     RoleSlotMetric(String, String, String),
+    GroupMetric(Vec<Graph>),
 }
 
 pub fn parse_graph(src: &str) -> Result<Graph, String> {
     let mut pairs = GraphParser::parse_str(Rule::graph, src).map_err(|e| format!("{}", e))?;
-    let pair = pairs.next().ok_or("graph")?.into_inner().next().unwrap();
+    convert_metrics(pairs.next().ok_or("graph")?.into_inner().next().unwrap())
+}
+
+fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Graph, String> {
     match pair.as_rule() {
         Rule::host_metric => {
             let mut inner = pair.into_inner();
@@ -48,6 +54,14 @@ pub fn parse_graph(src: &str) -> Result<Graph, String> {
             let metric_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
             Ok(Graph::RoleSlotMetric(service_name, role_name, metric_name))
         }
+        Rule::group_metric => {
+            let mut metrics = Vec::new();
+            for r in pair.into_inner() {
+                metrics.push(convert_metrics(r)?);
+            }
+            Ok(Graph::GroupMetric(metrics))
+        }
+        Rule::metrics => convert_metrics(pair.into_inner().next().unwrap()),
         _ => unreachable!(),
     }
 }
@@ -74,7 +88,14 @@ mod tests {
                  ("role (  'Blog:  db' , 'memory.*'  ) ",
                   Graph::RoleMetric("Blog".to_string(), "db".to_string(), "memory.*".to_string())),
                  ("roleSlots (  Blog:db , loadavg5  ) ",
-                  Graph::RoleSlotMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))];
+                  Graph::RoleSlotMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string())),
+                 ("group(host(22CXRB3pZmu, loadavg5), group(service(Blog, access_count.*), roleSlots(Blog:db, loadavg5)))",
+                  Graph::GroupMetric(vec![Graph::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
+                                          Graph::GroupMetric(vec![Graph::ServiceMetric("Blog".to_string(),
+                                                                                       "access_count.*".to_string()),
+                                                                  Graph::RoleSlotMetric("Blog".to_string(),
+                                                                                        "db".to_string(),
+                                                                                        "loadavg5".to_string())])]))];
         for (source, expected) in sources {
             let got = parse_graph(source);
             assert_eq!(got, Ok(expected));

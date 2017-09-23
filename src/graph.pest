@@ -1,9 +1,12 @@
-graph = { soi ~ (
+graph = { soi ~ metrics ~ eoi }
+
+metrics = { (
     host_metric
   | service_metric
   | role_metric
   | role_slot_metric
-) ~ eoi }
+  | group_metric
+) }
 
 metric_name_literal = ${ metric_name | "'" ~ metric_name ~ "'" | "\"" ~ metric_name ~ "\"" }
 metric_name = @{ ( 'a'..'z' | 'A'..'Z' | '0'..'9' | "-" | "_" | "." | "*" )+ }
@@ -25,5 +28,7 @@ role_full_name = { service_name ~ ":" ~ " "* ~ role_name }
 role_metric = { "role" ~ "(" ~ role_full_name_literal ~ "," ~ metric_name_literal ~ ")" }
 
 role_slot_metric = { "roleSlots" ~ "(" ~ role_full_name_literal ~ "," ~ metric_name_literal ~ ")" }
+
+group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 
 whitespace = _{ " " | "\t" | "\r" | "\n" }
