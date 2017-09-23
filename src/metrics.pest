@@ -20,6 +20,7 @@ metrics = { (
   | time_left_forecast_metric
   | group_metric
   | stack_metric
+  | alias_metric
 ) }
 
 metric_name_literal = ${ metric_name | "'" ~ metric_name ~ "'" | "\"" ~ metric_name ~ "\"" }
@@ -79,5 +80,11 @@ time_left_forecast_metric = { "timeLeftForecast" ~ "(" ~ metrics ~ "," ~ duratio
 group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 
 stack_metric = { "stack" ~ "(" ~ metrics ~ ")" }
+
+display_name = ${ "'" ~ display_name_single_inner ~ "'" | "\"" ~ display_name_doble_inner ~ "\"" }
+display_name_single_inner = @{ ( !"'" ~ any )* }
+display_name_doble_inner = @{ ( !"\"" ~ any )* }
+
+alias_metric = { "alias" ~ "(" ~ metrics ~ "," ~ display_name ~ ")" }
 
 whitespace = _{ " " | "\t" | "\r" | "\n" }

@@ -31,6 +31,7 @@ pub enum Metric {
     TimeLeftForecast(Box<Metric>, Duration, Factor),
     Group(Vec<Metric>),
     Stack(Box<Metric>),
+    Alias(Box<Metric>, String),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -177,6 +178,10 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
             let mut inner = pair.into_inner();
             Ok(Metric::Stack(Box::new(convert_metrics(next!(inner))?)))
         }
+        Rule::alias_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::Alias(Box::new(convert_metrics(next!(inner))?), arg_str!(inner)))
+        }
         Rule::metrics => convert_metrics(next!(pair.into_inner())),
         _ => unreachable!(),
     }
@@ -228,6 +233,7 @@ fn calc_depth(metric: Metric) -> u64 {
         Metric::TimeLeftForecast(metric, _, _) => 1 + calc_depth(*metric),
         Metric::Group(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
         Metric::Stack(metric) => 1 + calc_depth(*metric),
+        Metric::Alias(metric, _) => 1 + calc_depth(*metric),
         _ => 1,
     }
 }
@@ -376,6 +382,17 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
         } else {
             format!("stack(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
         },
+        Metric::Alias(metric, display_name) => format!(
+            "alias(\n{},\n  {}{}\n{})",
+            pretty_print_inner(*metric, depth - 1, indent + 1),
+            indent_str,
+            if display_name.contains("'") {
+                format!("\"{}\"", display_name)
+            } else {
+                format!("'{}'", display_name)
+            },
+            indent_str
+        ),
     };
     format!("{}{}", indent_str, metric_str)
 }
@@ -608,6 +625,22 @@ mod tests {
                     Metric::Role("Blog".to_string(), "db-slave".to_string(), "loadavg5".to_string()),
                 ]))),
                 "stack(\n  group(\n    role(Blog:db-master, loadavg5),\n    role(Blog:db-slave, loadavg5)\n  )\n)",
+            ),
+            (
+                "alias(service(Blog, foo.bar), 'Blog foo \"bar\"')",
+                Metric::Alias(
+                    Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
+                    "Blog foo \"bar\"".to_string(),
+                ),
+                "alias(\n  service(Blog, foo.bar),\n  'Blog foo \"bar\"'\n)",
+            ),
+            (
+                "alias(service(Blog, foo.bar), \"Blog foo 'bar'\")",
+                Metric::Alias(
+                    Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
+                    "Blog foo 'bar'".to_string(),
+                ),
+                "alias(\n  service(Blog, foo.bar),\n  \"Blog foo 'bar'\"\n)",
             ),
         ]
     }
