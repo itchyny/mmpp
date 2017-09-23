@@ -12,23 +12,23 @@ pub struct MetricParser;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Metric {
-    HostMetric(String, String),
-    ServiceMetric(String, String),
-    RoleMetric(String, String, String),
-    RoleSlotMetric(String, String, String),
-    AvgMetric(Box<Metric>),
-    MaxMetric(Box<Metric>),
-    MinMetric(Box<Metric>),
-    ProductMetric(Box<Metric>),
-    DiffMetric(Box<Metric>, Box<Metric>),
-    DivideMetric(Box<Metric>, Box<Metric>),
-    ScaleMetric(Box<Metric>, Factor),
-    OffsetMetric(Box<Metric>, Factor),
-    PercentileMetric(Box<Metric>, Percentage),
-    TimeShiftMetric(Box<Metric>, Duration),
-    MovingAverageMetric(Box<Metric>, Duration),
-    LinearRegressionMetric(Box<Metric>, Duration),
-    GroupMetric(Vec<Metric>),
+    Host(String, String),
+    Service(String, String),
+    Role(String, String, String),
+    RoleSlot(String, String, String),
+    Avg(Box<Metric>),
+    Max(Box<Metric>),
+    Min(Box<Metric>),
+    Product(Box<Metric>),
+    Diff(Box<Metric>, Box<Metric>),
+    Divide(Box<Metric>, Box<Metric>),
+    Scale(Box<Metric>, Factor),
+    Offset(Box<Metric>, Factor),
+    Percentile(Box<Metric>, Percentage),
+    TimeShift(Box<Metric>, Duration),
+    MovingAverage(Box<Metric>, Duration),
+    LinearRegression(Box<Metric>, Duration),
+    Group(Vec<Metric>),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -70,94 +70,88 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
     match pair.as_rule() {
         Rule::host_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::HostMetric(arg_str!(inner), arg_str!(inner)))
+            Ok(Metric::Host(arg_str!(inner), arg_str!(inner)))
         }
         Rule::service_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::ServiceMetric(arg_str!(inner), arg_str!(inner)))
+            Ok(Metric::Service(arg_str!(inner), arg_str!(inner)))
         }
         Rule::role_metric => {
             let mut inner = pair.into_inner();
             let mut role_full_name = arg!(inner).into_inner();
             let service_name = next!(role_full_name).as_str().to_string();
             let role_name = next!(role_full_name).as_str().to_string();
-            Ok(Metric::RoleMetric(service_name, role_name, arg_str!(inner)))
+            Ok(Metric::Role(service_name, role_name, arg_str!(inner)))
         }
         Rule::role_slot_metric => {
             let mut inner = pair.into_inner();
             let mut role_full_name = arg!(inner).into_inner();
             let service_name = next!(role_full_name).as_str().to_string();
             let role_name = next!(role_full_name).as_str().to_string();
-            Ok(Metric::RoleSlotMetric(service_name, role_name, arg_str!(inner)))
+            Ok(Metric::RoleSlot(service_name, role_name, arg_str!(inner)))
         }
         Rule::avg_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::AvgMetric(Box::new(convert_metrics(next!(inner))?)))
+            Ok(Metric::Avg(Box::new(convert_metrics(next!(inner))?)))
         }
         Rule::max_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::MaxMetric(Box::new(convert_metrics(next!(inner))?)))
+            Ok(Metric::Max(Box::new(convert_metrics(next!(inner))?)))
         }
         Rule::min_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::MinMetric(Box::new(convert_metrics(next!(inner))?)))
+            Ok(Metric::Min(Box::new(convert_metrics(next!(inner))?)))
         }
         Rule::product_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::ProductMetric(Box::new(convert_metrics(next!(inner))?)))
+            Ok(Metric::Product(Box::new(convert_metrics(next!(inner))?)))
         }
         Rule::diff_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::DiffMetric(
+            Ok(Metric::Diff(
                 Box::new(convert_metrics(next!(inner))?),
                 Box::new(convert_metrics(next!(inner))?),
             ))
         }
         Rule::divide_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::DivideMetric(
+            Ok(Metric::Divide(
                 Box::new(convert_metrics(next!(inner))?),
                 Box::new(convert_metrics(next!(inner))?),
             ))
         }
         Rule::scale_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::ScaleMetric(
-                Box::new(convert_metrics(next!(inner))?),
-                convert_factor(arg!(inner))?,
-            ))
+            Ok(Metric::Scale(Box::new(convert_metrics(next!(inner))?), convert_factor(arg!(inner))?))
         }
         Rule::offset_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::OffsetMetric(
-                Box::new(convert_metrics(next!(inner))?),
-                convert_factor(arg!(inner))?,
-            ))
+            Ok(Metric::Offset(Box::new(convert_metrics(next!(inner))?), convert_factor(arg!(inner))?))
         }
         Rule::percentile_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::PercentileMetric(
+            Ok(Metric::Percentile(
                 Box::new(convert_metrics(next!(inner))?),
                 convert_percentage(next!(inner))?,
             ))
         }
         Rule::time_shift_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::TimeShiftMetric(
+            Ok(Metric::TimeShift(
                 Box::new(convert_metrics(next!(inner))?),
                 convert_duration(arg!(inner))?,
             ))
         }
         Rule::moving_average_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::MovingAverageMetric(
+            Ok(Metric::MovingAverage(
                 Box::new(convert_metrics(next!(inner))?),
                 convert_duration(arg!(inner))?,
             ))
         }
         Rule::linear_regression_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::LinearRegressionMetric(
+            Ok(Metric::LinearRegression(
                 Box::new(convert_metrics(next!(inner))?),
                 convert_duration(arg!(inner))?,
             ))
@@ -167,7 +161,7 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
             for r in pair.into_inner() {
                 metrics.push(convert_metrics(r)?);
             }
-            Ok(Metric::GroupMetric(metrics))
+            Ok(Metric::Group(metrics))
         }
         Rule::metrics => convert_metrics(next!(pair.into_inner())),
         _ => unreachable!(),
@@ -205,19 +199,19 @@ pub fn pretty_print(metric: Metric) -> String {
 
 fn calc_depth(metric: Metric) -> u64 {
     match metric {
-        Metric::AvgMetric(metric) => 1 + calc_depth(*metric),
-        Metric::MaxMetric(metric) => 1 + calc_depth(*metric),
-        Metric::MinMetric(metric) => 1 + calc_depth(*metric),
-        Metric::ProductMetric(metric) => 1 + calc_depth(*metric),
-        Metric::DiffMetric(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
-        Metric::DivideMetric(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
-        Metric::ScaleMetric(metric, _) => 1 + calc_depth(*metric),
-        Metric::OffsetMetric(metric, _) => 1 + calc_depth(*metric),
-        Metric::PercentileMetric(metric, _) => 1 + calc_depth(*metric),
-        Metric::TimeShiftMetric(metric, _) => 1 + calc_depth(*metric),
-        Metric::MovingAverageMetric(metric, _) => 1 + calc_depth(*metric),
-        Metric::LinearRegressionMetric(metric, _) => 1 + calc_depth(*metric),
-        Metric::GroupMetric(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
+        Metric::Avg(metric) => 1 + calc_depth(*metric),
+        Metric::Max(metric) => 1 + calc_depth(*metric),
+        Metric::Min(metric) => 1 + calc_depth(*metric),
+        Metric::Product(metric) => 1 + calc_depth(*metric),
+        Metric::Diff(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
+        Metric::Divide(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
+        Metric::Scale(metric, _) => 1 + calc_depth(*metric),
+        Metric::Offset(metric, _) => 1 + calc_depth(*metric),
+        Metric::Percentile(metric, _) => 1 + calc_depth(*metric),
+        Metric::TimeShift(metric, _) => 1 + calc_depth(*metric),
+        Metric::MovingAverage(metric, _) => 1 + calc_depth(*metric),
+        Metric::LinearRegression(metric, _) => 1 + calc_depth(*metric),
+        Metric::Group(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
         _ => 1,
     }
 }
@@ -225,43 +219,43 @@ fn calc_depth(metric: Metric) -> u64 {
 fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
     let indent_str = " ".repeat(indent * 2);
     let metric_str = match metric {
-        Metric::HostMetric(host_id, metric_name) => format!("host({}, {})", host_id, metric_name),
-        Metric::ServiceMetric(service_name, metric_name) => format!("service({}, {})", service_name, metric_name),
-        Metric::RoleMetric(service_name, role_name, metric_name) => format!("role({}:{}, {})", service_name, role_name, metric_name),
-        Metric::RoleSlotMetric(service_name, role_name, metric_name) => format!("roleSlots({}:{}, {})", service_name, role_name, metric_name),
-        Metric::AvgMetric(metric) => if depth <= 2 {
+        Metric::Host(host_id, metric_name) => format!("host({}, {})", host_id, metric_name),
+        Metric::Service(service_name, metric_name) => format!("service({}, {})", service_name, metric_name),
+        Metric::Role(service_name, role_name, metric_name) => format!("role({}:{}, {})", service_name, role_name, metric_name),
+        Metric::RoleSlot(service_name, role_name, metric_name) => format!("roleSlots({}:{}, {})", service_name, role_name, metric_name),
+        Metric::Avg(metric) => if depth <= 2 {
             format!("avg({})", pretty_print_inner(*metric, depth - 1, 0))
         } else {
             format!("avg(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
         },
-        Metric::MaxMetric(metric) => if depth <= 2 {
+        Metric::Max(metric) => if depth <= 2 {
             format!("max({})", pretty_print_inner(*metric, depth - 1, 0))
         } else {
             format!("max(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
         },
-        Metric::MinMetric(metric) => if depth <= 2 {
+        Metric::Min(metric) => if depth <= 2 {
             format!("min({})", pretty_print_inner(*metric, depth - 1, 0))
         } else {
             format!("min(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
         },
-        Metric::ProductMetric(metric) => if depth <= 2 {
+        Metric::Product(metric) => if depth <= 2 {
             format!("product({})", pretty_print_inner(*metric, depth - 1, 0))
         } else {
             format!("product(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
         },
-        Metric::DiffMetric(metric1, metric2) => format!(
+        Metric::Diff(metric1, metric2) => format!(
             "diff(\n{},\n{}\n{})",
             pretty_print_inner(*metric1, depth - 1, indent + 1),
             pretty_print_inner(*metric2, depth - 1, indent + 1),
             indent_str
         ),
-        Metric::DivideMetric(metric1, metric2) => format!(
+        Metric::Divide(metric1, metric2) => format!(
             "divide(\n{},\n{}\n{})",
             pretty_print_inner(*metric1, depth - 1, indent + 1),
             pretty_print_inner(*metric2, depth - 1, indent + 1),
             indent_str
         ),
-        Metric::ScaleMetric(metric, factor) => if depth <= 2 {
+        Metric::Scale(metric, factor) => if depth <= 2 {
             format!("scale({}, {})", pretty_print_inner(*metric, depth - 1, 0), pretty_print_factor(factor))
         } else {
             format!(
@@ -272,7 +266,7 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
                 indent_str
             )
         },
-        Metric::OffsetMetric(metric, factor) => if depth <= 2 {
+        Metric::Offset(metric, factor) => if depth <= 2 {
             format!("offset({}, {})", pretty_print_inner(*metric, depth - 1, 0), pretty_print_factor(factor))
         } else {
             format!(
@@ -283,7 +277,7 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
                 indent_str
             )
         },
-        Metric::PercentileMetric(metric, percentage) => if depth <= 2 {
+        Metric::Percentile(metric, percentage) => if depth <= 2 {
             format!(
                 "percentile({}, {})",
                 pretty_print_inner(*metric, depth - 1, 0),
@@ -298,7 +292,7 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
                 indent_str
             )
         },
-        Metric::TimeShiftMetric(metric, duration) => if depth <= 2 {
+        Metric::TimeShift(metric, duration) => if depth <= 2 {
             format!(
                 "timeShift({}, {})",
                 pretty_print_inner(*metric, depth - 1, 0),
@@ -313,7 +307,7 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
                 indent_str
             )
         },
-        Metric::MovingAverageMetric(metric, duration) => if depth <= 2 {
+        Metric::MovingAverage(metric, duration) => if depth <= 2 {
             format!(
                 "movingAverage({}, {})",
                 pretty_print_inner(*metric, depth - 1, 0),
@@ -328,7 +322,7 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
                 indent_str
             )
         },
-        Metric::LinearRegressionMetric(metric, duration) => if depth <= 2 {
+        Metric::LinearRegression(metric, duration) => if depth <= 2 {
             format!(
                 "linearRegression({}, {})",
                 pretty_print_inner(*metric, depth - 1, 0),
@@ -343,7 +337,7 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
                 indent_str
             )
         },
-        Metric::GroupMetric(metrics) => format!(
+        Metric::Group(metrics) => format!(
             "group(\n{}\n{})",
             metrics
                 .iter()
@@ -383,104 +377,104 @@ mod tests {
         vec![
             (
                 "host(22CXRB3pZmu, loadavg5)",
-                Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
+                Metric::Host("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
                 "host(22CXRB3pZmu, loadavg5)",
             ),
             (
                 "host ( 22CXRB3pZmu, cpu.user.percentage )",
-                Metric::HostMetric("22CXRB3pZmu".to_string(), "cpu.user.percentage".to_string()),
+                Metric::Host("22CXRB3pZmu".to_string(), "cpu.user.percentage".to_string()),
                 "host(22CXRB3pZmu, cpu.user.percentage)",
             ),
             (
                 "host('22CXRB3pZmu', memory.*)",
-                Metric::HostMetric("22CXRB3pZmu".to_string(), "memory.*".to_string()),
+                Metric::Host("22CXRB3pZmu".to_string(), "memory.*".to_string()),
                 "host(22CXRB3pZmu, memory.*)",
             ),
             (
                 "host ( '22CXRB3pZmu', 'custom.foo.bar.*' )",
-                Metric::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string()),
+                Metric::Host("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string()),
                 "host(22CXRB3pZmu, custom.foo.bar.*)",
             ),
             (
                 "host ( \"22CXRB3pZmu\",\"custom.foo.bar.*\")",
-                Metric::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string()),
+                Metric::Host("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string()),
                 "host(22CXRB3pZmu, custom.foo.bar.*)",
             ),
             (
                 "service ( 'Blog', \"custom.access_count.*\")",
-                Metric::ServiceMetric("Blog".to_string(), "custom.access_count.*".to_string()),
+                Metric::Service("Blog".to_string(), "custom.access_count.*".to_string()),
                 "service(Blog, custom.access_count.*)",
             ),
             (
                 "role(Blog:db, memory.*)",
-                Metric::RoleMetric("Blog".to_string(), "db".to_string(), "memory.*".to_string()),
+                Metric::Role("Blog".to_string(), "db".to_string(), "memory.*".to_string()),
                 "role(Blog:db, memory.*)",
             ),
             (
                 "role (  'Blog:  db' , 'memory.*'  ) ",
-                Metric::RoleMetric("Blog".to_string(), "db".to_string(), "memory.*".to_string()),
+                Metric::Role("Blog".to_string(), "db".to_string(), "memory.*".to_string()),
                 "role(Blog:db, memory.*)",
             ),
             (
                 "roleSlots (  Blog:db , loadavg5  ) ",
-                Metric::RoleSlotMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string()),
+                Metric::RoleSlot("Blog".to_string(), "db".to_string(), "loadavg5".to_string()),
                 "roleSlots(Blog:db, loadavg5)",
             ),
             (
                 "avg(group(host(22CXRB3pZmu, loadavg5), host(22CXRB3pZmv, loadavg5)))",
-                Metric::AvgMetric(Box::new(Metric::GroupMetric(vec![
-                    Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
-                    Metric::HostMetric("22CXRB3pZmv".to_string(), "loadavg5".to_string()),
+                Metric::Avg(Box::new(Metric::Group(vec![
+                    Metric::Host("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
+                    Metric::Host("22CXRB3pZmv".to_string(), "loadavg5".to_string()),
                 ]))),
                 "avg(\n  group(\n    host(22CXRB3pZmu, loadavg5),\n    host(22CXRB3pZmv, loadavg5)\n  )\n)",
             ),
             (
                 "max(role(Blog:db, loadavg5))",
-                Metric::MaxMetric(Box::new(Metric::RoleMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))),
+                Metric::Max(Box::new(Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))),
                 "max(role(Blog:db, loadavg5))",
             ),
             (
                 "min(role(Blog:db, loadavg5))",
-                Metric::MinMetric(Box::new(Metric::RoleMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))),
+                Metric::Min(Box::new(Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))),
                 "min(role(Blog:db, loadavg5))",
             ),
             (
                 "product(group(service(Blog, foo.bar), service(Blog, foo.baz)))",
-                Metric::ProductMetric(Box::new(Metric::GroupMetric(vec![
-                    Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string()),
-                    Metric::ServiceMetric("Blog".to_string(), "foo.baz".to_string()),
+                Metric::Product(Box::new(Metric::Group(vec![
+                    Metric::Service("Blog".to_string(), "foo.bar".to_string()),
+                    Metric::Service("Blog".to_string(), "foo.baz".to_string()),
                 ]))),
                 "product(\n  group(\n    service(Blog, foo.bar),\n    service(Blog, foo.baz)\n  )\n)",
             ),
             (
                 "diff(service(Blog, foo.bar), service(Blog, foo.baz))",
-                Metric::DiffMetric(
-                    Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
-                    Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.baz".to_string())),
+                Metric::Diff(
+                    Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
+                    Box::new(Metric::Service("Blog".to_string(), "foo.baz".to_string())),
                 ),
                 "diff(\n  service(Blog, foo.bar),\n  service(Blog, foo.baz)\n)",
             ),
             (
                 "divide(service(Blog, foo.bar), service(Blog, foo.baz))",
-                Metric::DivideMetric(
-                    Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
-                    Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.baz".to_string())),
+                Metric::Divide(
+                    Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
+                    Box::new(Metric::Service("Blog".to_string(), "foo.baz".to_string())),
                 ),
                 "divide(\n  service(Blog, foo.bar),\n  service(Blog, foo.baz)\n)",
             ),
             (
                 "scale ( service ( Blog , foo.bar ) , 10.0 )",
-                Metric::ScaleMetric(
-                    Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                Metric::Scale(
+                    Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
                     Factor::Double("10.0".to_string()),
                 ),
                 "scale(service(Blog, foo.bar), 10.0)",
             ),
             (
                 "scale(scale(service('Blog', 'foo.bar'), 3.140e10), -31.4/6.25)",
-                Metric::ScaleMetric(
-                    Box::new(Metric::ScaleMetric(
-                        Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                Metric::Scale(
+                    Box::new(Metric::Scale(
+                        Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
                         Factor::Double("3.140e10".to_string()),
                     )),
                     Factor::Fraction("-31.4".to_string(), "6.25".to_string()),
@@ -489,17 +483,17 @@ mod tests {
             ),
             (
                 "offset ( service ( Blog , foo.bar ) , 10.0 )",
-                Metric::OffsetMetric(
-                    Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                Metric::Offset(
+                    Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
                     Factor::Double("10.0".to_string()),
                 ),
                 "offset(service(Blog, foo.bar), 10.0)",
             ),
             (
                 "offset(offset(service('Blog', 'foo.bar'), 3.140e10), -31.4/6.25)",
-                Metric::OffsetMetric(
-                    Box::new(Metric::OffsetMetric(
-                        Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                Metric::Offset(
+                    Box::new(Metric::Offset(
+                        Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
                         Factor::Double("3.140e10".to_string()),
                     )),
                     Factor::Fraction("-31.4".to_string(), "6.25".to_string()),
@@ -508,25 +502,25 @@ mod tests {
             ),
             (
                 "percentile( role('Blog:db', 'loadavg5') , 75.5)",
-                Metric::PercentileMetric(
-                    Box::new(Metric::RoleMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string())),
+                Metric::Percentile(
+                    Box::new(Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string())),
                     Percentage("75.5".to_string()),
                 ),
                 "percentile(role(Blog:db, loadavg5), 75.5)",
             ),
             (
                 "timeShift(service(Blog, foo.bar), 1d)",
-                Metric::TimeShiftMetric(
-                    Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                Metric::TimeShift(
+                    Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
                     Duration("1d".to_string()),
                 ),
                 "timeShift(service(Blog, foo.bar), 1d)",
             ),
             (
                 "timeShift(offset(service(Blog, foo.bar), 10.0), 1h)",
-                Metric::TimeShiftMetric(
-                    Box::new(Metric::OffsetMetric(
-                        Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                Metric::TimeShift(
+                    Box::new(Metric::Offset(
+                        Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
                         Factor::Double("10.0".to_string()),
                     )),
                     Duration("1h".to_string()),
@@ -535,27 +529,27 @@ mod tests {
             ),
             (
                 "movingAverage(service(Blog, foo.bar), 1d)",
-                Metric::MovingAverageMetric(
-                    Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                Metric::MovingAverage(
+                    Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
                     Duration("1d".to_string()),
                 ),
                 "movingAverage(service(Blog, foo.bar), 1d)",
             ),
             (
                 "linearRegression(host(22CXRB3pZmu, filesystem.drive.used), 7d)",
-                Metric::LinearRegressionMetric(
-                    Box::new(Metric::HostMetric("22CXRB3pZmu".to_string(), "filesystem.drive.used".to_string())),
+                Metric::LinearRegression(
+                    Box::new(Metric::Host("22CXRB3pZmu".to_string(), "filesystem.drive.used".to_string())),
                     Duration("7d".to_string()),
                 ),
                 "linearRegression(host(22CXRB3pZmu, filesystem.drive.used), 7d)",
             ),
             (
                 "group(host(22CXRB3pZmu, loadavg5), group(service(Blog, access_count.*), roleSlots(Blog:db, loadavg5)))",
-                Metric::GroupMetric(vec![
-                    Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
-                    Metric::GroupMetric(vec![
-                        Metric::ServiceMetric("Blog".to_string(), "access_count.*".to_string()),
-                        Metric::RoleSlotMetric("Blog".to_string(), "db".to_string(), "loadavg5".to_string()),
+                Metric::Group(vec![
+                    Metric::Host("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
+                    Metric::Group(vec![
+                        Metric::Service("Blog".to_string(), "access_count.*".to_string()),
+                        Metric::RoleSlot("Blog".to_string(), "db".to_string(), "loadavg5".to_string()),
                     ]),
                 ]),
                 "group(\n  host(22CXRB3pZmu, loadavg5),\n  group(\n    service(Blog, access_count.*),\n    roleSlots(Blog:db, loadavg5)\n  )\n)",
