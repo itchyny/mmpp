@@ -10,6 +10,7 @@ metrics = { (
   | min_metric
   | product_metric
   | diff_metric
+  | divide_metric
   | group_metric
 ) }
 
@@ -43,6 +44,8 @@ min_metric = { "min" ~ "(" ~ metrics ~ ")" }
 product_metric = { "product" ~ "(" ~ metrics ~ ")" }
 
 diff_metric = { "diff" ~ "(" ~ metrics ~ "," ~ metrics ~ ")" }
+
+divide_metric = { "divide" ~ "(" ~ metrics ~ "," ~ metrics ~ ")" }
 
 group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 
