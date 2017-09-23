@@ -27,6 +27,7 @@ pub enum Metric {
     PercentileMetric(Box<Metric>, Percentage),
     TimeShiftMetric(Box<Metric>, Duration),
     MovingAverageMetric(Box<Metric>, Duration),
+    LinearRegressionMetric(Box<Metric>, Duration),
     GroupMetric(Vec<Metric>),
 }
 
@@ -142,6 +143,13 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
                 convert_duration(inner.next().unwrap().into_inner().next().unwrap())?,
             ))
         }
+        Rule::linear_regression_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::LinearRegressionMetric(
+                Box::new(convert_metrics(inner.next().unwrap())?),
+                convert_duration(inner.next().unwrap().into_inner().next().unwrap())?,
+            ))
+        }
         Rule::group_metric => {
             let mut metrics = Vec::new();
             for r in pair.into_inner() {
@@ -199,6 +207,7 @@ fn calc_depth(metric: Metric) -> u64 {
         Metric::PercentileMetric(metric, _) => 1 + calc_depth(*metric),
         Metric::TimeShiftMetric(metric, _) => 1 + calc_depth(*metric),
         Metric::MovingAverageMetric(metric, _) => 1 + calc_depth(*metric),
+        Metric::LinearRegressionMetric(metric, _) => 1 + calc_depth(*metric),
         Metric::GroupMetric(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
         _ => 1,
     }
@@ -304,6 +313,21 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
         } else {
             format!(
                 "movingAverage(\n{},\n  {}{}\n{})",
+                pretty_print_inner(*metric, depth - 1, indent + 1),
+                indent_str,
+                pretty_print_duration(duration),
+                indent_str
+            )
+        },
+        Metric::LinearRegressionMetric(metric, duration) => if depth <= 2 {
+            format!(
+                "linearRegression({}, {})",
+                pretty_print_inner(*metric, depth - 1, 0),
+                pretty_print_duration(duration),
+            )
+        } else {
+            format!(
+                "linearRegression(\n{},\n  {}{}\n{})",
                 pretty_print_inner(*metric, depth - 1, indent + 1),
                 indent_str,
                 pretty_print_duration(duration),
@@ -507,6 +531,14 @@ mod tests {
                     Duration("1d".to_string()),
                 ),
                 "movingAverage(service(Blog, foo.bar), 1d)",
+            ),
+            (
+                "linearRegression(host(22CXRB3pZmu, filesystem.drive.used), 7d)",
+                Metric::LinearRegressionMetric(
+                    Box::new(Metric::HostMetric("22CXRB3pZmu".to_string(), "filesystem.drive.used".to_string())),
+                    Duration("7d".to_string()),
+                ),
+                "linearRegression(host(22CXRB3pZmu, filesystem.drive.used), 7d)",
             ),
             (
                 "group(host(22CXRB3pZmu, loadavg5), group(service(Blog, access_count.*), roleSlots(Blog:db, loadavg5)))",

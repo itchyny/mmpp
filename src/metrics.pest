@@ -16,6 +16,7 @@ metrics = { (
   | percentile_metric
   | time_shift_metric
   | moving_average_metric
+  | linear_regression_metric
   | group_metric
 ) }
 
@@ -68,6 +69,8 @@ duration = @{ ( '0'..'9')+ ~ ( "m" | "h" | "d" | "w" | "mo" | "y" ) }
 time_shift_metric = { "timeShift" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")" }
 
 moving_average_metric = { "movingAverage" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")" }
+
+linear_regression_metric = { "linearRegression" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")" }
 
 group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 
