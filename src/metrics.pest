@@ -64,7 +64,7 @@ offset_metric = { "offset" ~ "(" ~ metrics ~ "," ~ factor ~ ")" }
 percentile_metric = { "percentile" ~ "(" ~ metrics ~ "," ~ double ~ ")" }
 
 duration_literal = ${ duration | "'" ~ duration ~ "'" | "\"" ~ duration ~ "\"" }
-duration = @{ ( '0'..'9')+ ~ ( "m" | "h" | "d" | "w" | "mo" | "y" ) }
+duration = @{ '0'..'9'+ ~ ( "m" ~ "o"? | "h" | "d" | "w" | "y" ) }
 
 time_shift_metric = { "timeShift" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")" }
 
