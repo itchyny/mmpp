@@ -43,111 +43,123 @@ pub struct Percentage(String);
 #[derive(Debug, PartialEq, Clone)]
 pub struct Duration(String);
 
-pub fn parse_metric(src: &str) -> Result<Metric, String> {
-    let mut pairs = MetricParser::parse_str(Rule::whole_metrics, src).map_err(|e| format!("{}", e))?;
-    convert_metrics(pairs.next().ok_or("metrics")?.into_inner().next().unwrap())
+macro_rules! next {
+    ($pairs:expr) => {
+        $pairs.next().unwrap()
+    }
 }
 
 macro_rules! arg {
     ($pairs:expr) => {
-        $pairs.next().unwrap().into_inner().next().unwrap().as_str().to_string()
+        next!(next!($pairs).into_inner())
     }
+}
+
+macro_rules! arg_str {
+    ($pairs:expr) => {
+        arg!($pairs).as_str().to_string()
+    }
+}
+
+pub fn parse_metric(src: &str) -> Result<Metric, String> {
+    let mut pairs = MetricParser::parse_str(Rule::whole_metrics, src).map_err(|e| format!("{}", e))?;
+    convert_metrics(next!(next!(pairs).into_inner()))
 }
 
 fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
     match pair.as_rule() {
         Rule::host_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::HostMetric(arg!(inner), arg!(inner)))
+            Ok(Metric::HostMetric(arg_str!(inner), arg_str!(inner)))
         }
         Rule::service_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::ServiceMetric(arg!(inner), arg!(inner)))
+            Ok(Metric::ServiceMetric(arg_str!(inner), arg_str!(inner)))
         }
         Rule::role_metric => {
             let mut inner = pair.into_inner();
-            let mut role_full_name = inner.next().unwrap().into_inner().next().unwrap().into_inner();
-            let service_name = role_full_name.next().unwrap().as_str().to_string();
-            let role_name = role_full_name.next().unwrap().as_str().to_string();
-            Ok(Metric::RoleMetric(service_name, role_name, arg!(inner)))
+            let mut role_full_name = arg!(inner).into_inner();
+            let service_name = next!(role_full_name).as_str().to_string();
+            let role_name = next!(role_full_name).as_str().to_string();
+            Ok(Metric::RoleMetric(service_name, role_name, arg_str!(inner)))
         }
         Rule::role_slot_metric => {
             let mut inner = pair.into_inner();
-            let mut role_full_name = inner.next().unwrap().into_inner().next().unwrap().into_inner();
-            let service_name = role_full_name.next().unwrap().as_str().to_string();
-            let role_name = role_full_name.next().unwrap().as_str().to_string();
-            Ok(Metric::RoleSlotMetric(service_name, role_name, arg!(inner)))
+            let mut role_full_name = arg!(inner).into_inner();
+            let service_name = next!(role_full_name).as_str().to_string();
+            let role_name = next!(role_full_name).as_str().to_string();
+            Ok(Metric::RoleSlotMetric(service_name, role_name, arg_str!(inner)))
         }
         Rule::avg_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::AvgMetric(Box::new(convert_metrics(inner.next().unwrap())?)))
+            Ok(Metric::AvgMetric(Box::new(convert_metrics(next!(inner))?)))
         }
         Rule::max_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::MaxMetric(Box::new(convert_metrics(inner.next().unwrap())?)))
+            Ok(Metric::MaxMetric(Box::new(convert_metrics(next!(inner))?)))
         }
         Rule::min_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::MinMetric(Box::new(convert_metrics(inner.next().unwrap())?)))
+            Ok(Metric::MinMetric(Box::new(convert_metrics(next!(inner))?)))
         }
         Rule::product_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::ProductMetric(Box::new(convert_metrics(inner.next().unwrap())?)))
+            Ok(Metric::ProductMetric(Box::new(convert_metrics(next!(inner))?)))
         }
         Rule::diff_metric => {
             let mut inner = pair.into_inner();
             Ok(Metric::DiffMetric(
-                Box::new(convert_metrics(inner.next().unwrap())?),
-                Box::new(convert_metrics(inner.next().unwrap())?),
+                Box::new(convert_metrics(next!(inner))?),
+                Box::new(convert_metrics(next!(inner))?),
             ))
         }
         Rule::divide_metric => {
             let mut inner = pair.into_inner();
             Ok(Metric::DivideMetric(
-                Box::new(convert_metrics(inner.next().unwrap())?),
-                Box::new(convert_metrics(inner.next().unwrap())?),
+                Box::new(convert_metrics(next!(inner))?),
+                Box::new(convert_metrics(next!(inner))?),
             ))
         }
         Rule::scale_metric => {
             let mut inner = pair.into_inner();
             Ok(Metric::ScaleMetric(
-                Box::new(convert_metrics(inner.next().unwrap())?),
-                convert_factor(inner.next().unwrap().into_inner().next().unwrap())?,
+                Box::new(convert_metrics(next!(inner))?),
+                convert_factor(arg!(inner))?,
             ))
         }
         Rule::offset_metric => {
             let mut inner = pair.into_inner();
             Ok(Metric::OffsetMetric(
-                Box::new(convert_metrics(inner.next().unwrap())?),
-                convert_factor(inner.next().unwrap().into_inner().next().unwrap())?,
+                Box::new(convert_metrics(next!(inner))?),
+                convert_factor(arg!(inner))?,
             ))
         }
         Rule::percentile_metric => {
             let mut inner = pair.into_inner();
             Ok(Metric::PercentileMetric(
-                Box::new(convert_metrics(inner.next().unwrap())?),
-                convert_percentage(inner.next().unwrap())?,
+                Box::new(convert_metrics(next!(inner))?),
+                convert_percentage(next!(inner))?,
             ))
         }
         Rule::time_shift_metric => {
             let mut inner = pair.into_inner();
             Ok(Metric::TimeShiftMetric(
-                Box::new(convert_metrics(inner.next().unwrap())?),
-                convert_duration(inner.next().unwrap().into_inner().next().unwrap())?,
+                Box::new(convert_metrics(next!(inner))?),
+                convert_duration(arg!(inner))?,
             ))
         }
         Rule::moving_average_metric => {
             let mut inner = pair.into_inner();
             Ok(Metric::MovingAverageMetric(
-                Box::new(convert_metrics(inner.next().unwrap())?),
-                convert_duration(inner.next().unwrap().into_inner().next().unwrap())?,
+                Box::new(convert_metrics(next!(inner))?),
+                convert_duration(arg!(inner))?,
             ))
         }
         Rule::linear_regression_metric => {
             let mut inner = pair.into_inner();
             Ok(Metric::LinearRegressionMetric(
-                Box::new(convert_metrics(inner.next().unwrap())?),
-                convert_duration(inner.next().unwrap().into_inner().next().unwrap())?,
+                Box::new(convert_metrics(next!(inner))?),
+                convert_duration(arg!(inner))?,
             ))
         }
         Rule::group_metric => {
@@ -157,7 +169,7 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
             }
             Ok(Metric::GroupMetric(metrics))
         }
-        Rule::metrics => convert_metrics(pair.into_inner().next().unwrap()),
+        Rule::metrics => convert_metrics(next!(pair.into_inner())),
         _ => unreachable!(),
     }
 }
@@ -167,10 +179,7 @@ fn convert_factor<I: Input>(pair: Pair<Rule, I>) -> Result<Factor, String> {
         Rule::double => Ok(Factor::Double(pair.as_str().to_string())),
         Rule::fraction => {
             let mut inner = pair.into_inner();
-            Ok(Factor::Fraction(
-                inner.next().unwrap().as_str().to_string(),
-                inner.next().unwrap().as_str().to_string(),
-            ))
+            Ok(Factor::Fraction(next!(inner).as_str().to_string(), next!(inner).as_str().to_string()))
         }
         r => Err(format!("invalid factor: {:?}", r)),
     }
