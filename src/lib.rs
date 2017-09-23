@@ -12,6 +12,7 @@ pub struct GraphParser;
 pub enum Graph {
     HostMetric(String, String),
     ServiceMetric(String, String),
+    RoleMetric(String, String, String),
 }
 
 pub fn parse_graph(src: &str) -> Result<Graph, String> {
@@ -29,6 +30,14 @@ pub fn parse_graph(src: &str) -> Result<Graph, String> {
             let service_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
             let metric_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
             Ok(Graph::ServiceMetric(service_name, metric_name))
+        }
+        Rule::role_metric => {
+            let mut inner = pair.into_inner();
+            let mut role_full_name = inner.next().unwrap().into_inner().next().unwrap().into_inner();
+            let service_name = role_full_name.next().unwrap().as_str().to_string();
+            let role_name = role_full_name.next().unwrap().as_str().to_string();
+            let metric_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
+            Ok(Graph::RoleMetric(service_name, role_name, metric_name))
         }
         _ => unreachable!(),
     }
@@ -50,7 +59,11 @@ mod tests {
                  ("host ( \"22CXRB3pZmu\",\"custom.foo.bar.*\")",
                   Graph::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string())),
                  ("service ( 'Blog', \"custom.access_count.*\")",
-                  Graph::ServiceMetric("Blog".to_string(), "custom.access_count.*".to_string()))];
+                  Graph::ServiceMetric("Blog".to_string(), "custom.access_count.*".to_string())),
+                 ("role(Blog:db, memory.*)",
+                  Graph::RoleMetric("Blog".to_string(), "db".to_string(), "memory.*".to_string())),
+                 ("role (  'Blog:  db' , 'memory.*'  ) ",
+                  Graph::RoleMetric("Blog".to_string(), "db".to_string(), "memory.*".to_string()))];
         for (source, expected) in sources {
             let got = parse_graph(source);
             assert_eq!(got, Ok(expected));

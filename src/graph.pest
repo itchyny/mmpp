@@ -1,4 +1,4 @@
-graph = { soi ~ ( host_metric | service_metric ) ~ eoi }
+graph = { soi ~ ( host_metric | service_metric | role_metric ) ~ eoi }
 
 metric_name_literal = ${ metric_name | "'" ~ metric_name ~ "'" | "\"" ~ metric_name ~ "\"" }
 metric_name = @{ ( 'a'..'z' | 'A'..'Z' | '0'..'9' | "-" | "_" | "." | "*" )+ }
@@ -12,5 +12,11 @@ service_name_literal = ${ service_name | "'" ~ service_name ~ "'" | "\"" ~ servi
 service_name = @{ ( 'a'..'z' | 'A'..'Z' | '0'..'9' | "-" | "_" )+ }
 
 service_metric = { "service" ~ "(" ~ service_name_literal ~ "," ~ metric_name_literal ~ ")" }
+
+role_name = @{ ( 'a'..'z' | 'A'..'Z' | '0'..'9' | "-" | "_" )+ }
+role_full_name_literal = ${ role_full_name | "'" ~ role_full_name ~ "'" | "\"" ~ role_full_name ~ "\"" }
+role_full_name = { service_name ~ ":" ~ " "* ~ role_name }
+
+role_metric = { "role" ~ "(" ~ role_full_name_literal ~ "," ~ metric_name_literal ~ ")" }
 
 whitespace = _{ " " | "\t" | "\r" | "\n" }
