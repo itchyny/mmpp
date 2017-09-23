@@ -11,6 +11,7 @@ pub struct GraphParser;
 #[derive(Debug, PartialEq)]
 pub enum Graph {
     HostMetric(String, String),
+    ServiceMetric(String, String),
 }
 
 pub fn parse_graph(src: &str) -> Result<Graph, String> {
@@ -22,6 +23,12 @@ pub fn parse_graph(src: &str) -> Result<Graph, String> {
             let host_id = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
             let metric_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
             Ok(Graph::HostMetric(host_id, metric_name))
+        }
+        Rule::service_metric => {
+            let mut inner = pair.into_inner();
+            let service_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
+            let metric_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
+            Ok(Graph::ServiceMetric(service_name, metric_name))
         }
         _ => unreachable!(),
     }
@@ -41,7 +48,9 @@ mod tests {
                  ("host ( '22CXRB3pZmu', 'custom.foo.bar.*' )",
                   Graph::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string())),
                  ("host ( \"22CXRB3pZmu\",\"custom.foo.bar.*\")",
-                  Graph::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string()))];
+                  Graph::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string())),
+                 ("service ( 'Blog', \"custom.access_count.*\")",
+                  Graph::ServiceMetric("Blog".to_string(), "custom.access_count.*".to_string()))];
         for (source, expected) in sources {
             let got = parse_graph(source);
             assert_eq!(got, Ok(expected));
