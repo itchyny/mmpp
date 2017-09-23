@@ -23,6 +23,7 @@ pub enum Metric {
     DiffMetric(Box<Metric>, Box<Metric>),
     DivideMetric(Box<Metric>, Box<Metric>),
     ScaleMetric(Box<Metric>, Factor),
+    OffsetMetric(Box<Metric>, Factor),
     GroupMetric(Vec<Metric>),
 }
 
@@ -104,6 +105,13 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
                 convert_factor(inner.next().unwrap().into_inner().next().unwrap())?,
             ))
         }
+        Rule::offset_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::OffsetMetric(
+                Box::new(convert_metrics(inner.next().unwrap())?),
+                convert_factor(inner.next().unwrap().into_inner().next().unwrap())?,
+            ))
+        }
         Rule::group_metric => {
             let mut metrics = Vec::new();
             for r in pair.into_inner() {
@@ -143,6 +151,7 @@ fn calc_depth(metric: Metric) -> u64 {
         Metric::DiffMetric(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
         Metric::DivideMetric(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
         Metric::ScaleMetric(metric, _) => 1 + calc_depth(*metric),
+        Metric::OffsetMetric(metric, _) => 1 + calc_depth(*metric),
         Metric::GroupMetric(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
         _ => 1,
     }
@@ -192,6 +201,17 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
         } else {
             format!(
                 "scale(\n{},\n  {}{}\n{})",
+                pretty_print_inner(*metric, depth - 1, indent + 1),
+                indent_str,
+                pretty_print_factor(factor),
+                indent_str
+            )
+        },
+        Metric::OffsetMetric(metric, factor) => if depth <= 2 {
+            format!("offset({}, {})", pretty_print_inner(*metric, depth - 1, 0), pretty_print_factor(factor))
+        } else {
+            format!(
+                "offset(\n{},\n  {}{}\n{})",
                 pretty_print_inner(*metric, depth - 1, indent + 1),
                 indent_str,
                 pretty_print_factor(factor),
@@ -329,6 +349,25 @@ mod tests {
                     Factor::Fraction("-31.4".to_string(), "6.25".to_string()),
                 ),
                 "scale(\n  scale(service(Blog, foo.bar), 3.140e10),\n  -31.4/6.25\n)",
+            ),
+            (
+                "offset ( service ( Blog , foo.bar ) , 10.0 )",
+                Metric::OffsetMetric(
+                    Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                    Factor::Double("10.0".to_string()),
+                ),
+                "offset(service(Blog, foo.bar), 10.0)",
+            ),
+            (
+                "offset(offset(service('Blog', 'foo.bar'), 3.140e10), -31.4/6.25)",
+                Metric::OffsetMetric(
+                    Box::new(Metric::OffsetMetric(
+                        Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                        Factor::Double("3.140e10".to_string()),
+                    )),
+                    Factor::Fraction("-31.4".to_string(), "6.25".to_string()),
+                ),
+                "offset(\n  offset(service(Blog, foo.bar), 3.140e10),\n  -31.4/6.25\n)",
             ),
             (
                 "group(host(22CXRB3pZmu, loadavg5), group(service(Blog, access_count.*), roleSlots(Blog:db, loadavg5)))",
