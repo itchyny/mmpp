@@ -20,6 +20,7 @@ pub enum Metric {
     MaxMetric(Box<Metric>),
     MinMetric(Box<Metric>),
     ProductMetric(Box<Metric>),
+    DiffMetric(Box<Metric>, Box<Metric>),
     GroupMetric(Vec<Metric>),
 }
 
@@ -74,6 +75,11 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
             let mut inner = pair.into_inner();
             Ok(Metric::ProductMetric(Box::new(convert_metrics(inner.next().unwrap())?)))
         }
+        Rule::diff_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::DiffMetric(Box::new(convert_metrics(inner.next().unwrap())?),
+                                  Box::new(convert_metrics(inner.next().unwrap())?)))
+        }
         Rule::group_metric => {
             let mut metrics = Vec::new();
             for r in pair.into_inner() {
@@ -96,6 +102,7 @@ fn calc_depth(metric: Metric) -> u64 {
         Metric::MaxMetric(metric) => 1 + calc_depth(*metric),
         Metric::MinMetric(metric) => 1 + calc_depth(*metric),
         Metric::ProductMetric(metric) => 1 + calc_depth(*metric),
+        Metric::DiffMetric(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
         Metric::GroupMetric(metrics) => 1 + metrics.iter().map(|metric| calc_depth(metric.clone())).max().unwrap(),
         _ => 1,
     }
@@ -135,6 +142,12 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
             } else {
                 format!("product(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
             }
+        }
+        Metric::DiffMetric(metric1, metric2) => {
+            format!("diff(\n{},\n{}\n{})",
+                    pretty_print_inner(*metric1, depth - 1, indent + 1),
+                    pretty_print_inner(*metric2, depth - 1, indent + 1),
+                    indent_str)
         }
         Metric::GroupMetric(metrics) => {
             format!("group(\n{}\n{})",
@@ -188,6 +201,10 @@ mod tests {
               Metric::ProductMetric(Box::new(Metric::GroupMetric(vec![Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string()),
                                                                       Metric::ServiceMetric("Blog".to_string(), "foo.baz".to_string())]))),
               "product(\n  group(\n    service(Blog, foo.bar),\n    service(Blog, foo.baz)\n  )\n)"),
+             ("diff(service(Blog, foo.bar), service(Blog, foo.baz))",
+              Metric::DiffMetric(Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.bar".to_string())),
+                                 Box::new(Metric::ServiceMetric("Blog".to_string(), "foo.baz".to_string()))),
+              "diff(\n  service(Blog, foo.bar),\n  service(Blog, foo.baz)\n)"),
              ("group(\n  host(22CXRB3pZmu, loadavg5),\n  group(\n    service(Blog, access_count.*),\n    roleSlots(Blog:db, loadavg5)\n  )\n)",
               Metric::GroupMetric(vec![Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
                                        Metric::GroupMetric(vec![Metric::ServiceMetric("Blog".to_string(), "access_count.*".to_string()),

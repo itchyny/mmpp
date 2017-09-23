@@ -9,6 +9,7 @@ metrics = { (
   | max_metric
   | min_metric
   | product_metric
+  | diff_metric
   | group_metric
 ) }
 
@@ -40,6 +41,8 @@ max_metric = { "max" ~ "(" ~ metrics ~ ")" }
 min_metric = { "min" ~ "(" ~ metrics ~ ")" }
 
 product_metric = { "product" ~ "(" ~ metrics ~ ")" }
+
+diff_metric = { "diff" ~ "(" ~ metrics ~ "," ~ metrics ~ ")" }
 
 group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 
