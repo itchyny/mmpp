@@ -15,6 +15,7 @@ metrics = { (
   | offset_metric
   | percentile_metric
   | time_shift_metric
+  | moving_average_metric
   | group_metric
 ) }
 
@@ -65,6 +66,8 @@ duration_literal = ${ duration | "'" ~ duration ~ "'" | "\"" ~ duration ~ "\"" }
 duration = @{ ( '0'..'9')+ ~ ( "m" | "h" | "d" | "w" | "mo" | "y" ) }
 
 time_shift_metric = { "timeShift" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")" }
+
+moving_average_metric = { "movingAverage" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")" }
 
 group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 
