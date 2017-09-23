@@ -6,6 +6,7 @@ metrics = { (
   | role_metric
   | role_slot_metric
   | avg_metric
+  | max_metric
   | group_metric
 ) }
 
@@ -31,6 +32,8 @@ role_metric = { "role" ~ "(" ~ role_full_name_literal ~ "," ~ metric_name_litera
 role_slot_metric = { "roleSlots" ~ "(" ~ role_full_name_literal ~ "," ~ metric_name_literal ~ ")" }
 
 avg_metric = { "avg" ~ "(" ~ metrics ~ ")" }
+
+max_metric = { "max" ~ "(" ~ metrics ~ ")" }
 
 group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 

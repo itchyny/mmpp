@@ -17,6 +17,7 @@ pub enum Metric {
     RoleMetric(String, String, String),
     RoleSlotMetric(String, String, String),
     AvgMetric(Box<Metric>),
+    MaxMetric(Box<Metric>),
     GroupMetric(Vec<Metric>),
 }
 
@@ -59,6 +60,10 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
             let mut inner = pair.into_inner();
             Ok(Metric::AvgMetric(Box::new(convert_metrics(inner.next().unwrap())?)))
         }
+        Rule::max_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::MaxMetric(Box::new(convert_metrics(inner.next().unwrap())?)))
+        }
         Rule::group_metric => {
             let mut metrics = Vec::new();
             for r in pair.into_inner() {
@@ -99,6 +104,10 @@ mod tests {
                                                                                          "loadavg5".to_string()),
                                                                       Metric::HostMetric("22CXRB3pZmv".to_string(),
                                                                                          "loadavg5".to_string())])))),
+                 ("max(role(Blog:db, loadavg5))",
+                  Metric::MaxMetric(Box::new(Metric::RoleMetric("Blog".to_string(),
+                                                                "db".to_string(),
+                                                                "loadavg5".to_string())))),
                  ("group(host(22CXRB3pZmu, loadavg5), group(service(Blog, access_count.*), roleSlots(Blog:db, loadavg5)))",
                   Metric::GroupMetric(vec![Metric::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string()),
                                            Metric::GroupMetric(vec![Metric::ServiceMetric("Blog".to_string(),
