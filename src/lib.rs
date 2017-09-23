@@ -388,9 +388,7 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
             indent_str,
             if display_name.contains("'") {
                 format!("\"{}\"", display_name)
-            } else if display_name.starts_with(" ") || vec!["\t", "\n", "\r", "'", "\"", "(", ",", ")"].iter().any(|c| display_name.contains(c))
-                || display_name.ends_with(" ")
-            {
+            } else if vec![" ", "\t", "\n", "\r", "'", "\"", "(", ",", ")"].iter().any(|c| display_name.contains(c)) {
                 format!("'{}'", display_name)
             } else {
                 format!("{}", display_name)
@@ -660,7 +658,12 @@ mod tests {
                     Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
                     "Blog foo  bar".to_string(),
                 ),
-                "alias(\n  service(Blog, foo.bar),\n  Blog foo  bar\n)",
+                "alias(\n  service(Blog, foo.bar),\n  'Blog foo  bar'\n)",
+            ),
+            (
+                "alias( service(Blog, foo.bar), Blog )",
+                Metric::Alias(Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())), "Blog".to_string()),
+                "alias(\n  service(Blog, foo.bar),\n  Blog\n)",
             ),
         ]
     }
