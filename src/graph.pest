@@ -1,6 +1,11 @@
-graph = { soi ~ metric_name ~ eoi }
+graph = { soi ~ host_metric ~ eoi }
 
-metric_name = ${ metric_name_inner | "'" ~ metric_name_inner ~ "'" | "\"" ~ metric_name_inner ~ "\"" }
-metric_name_inner = @{ ( 'a'..'z' | 'A'..'Z' | '0'..'9' | "-" | "_" | "." | "*" )+ }
+metric_name_literal = ${ metric_name | "'" ~ metric_name ~ "'" | "\"" ~ metric_name ~ "\"" }
+metric_name = @{ ( 'a'..'z' | 'A'..'Z' | '0'..'9' | "-" | "_" | "." | "*" )+ }
+
+host_id_literal = ${ host_id | "'" ~ host_id ~ "'" | "\"" ~ host_id ~ "\"" }
+host_id = @{ ( 'a'..'z' | 'A'..'Z' | '0'..'9' )+ }
+
+host_metric = { "host" ~ "(" ~ host_id_literal ~ "," ~ metric_name_literal ~ ")" }
 
 whitespace = _{ " " | "\t" | "\r" | "\n" }

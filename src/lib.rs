@@ -10,18 +10,20 @@ pub struct GraphParser;
 
 #[derive(Debug, PartialEq)]
 pub enum Graph {
-    MetricName(String),
+    HostMetric(String, String),
 }
 
 pub fn parse_graph(src: &str) -> Result<Graph, String> {
     let mut pairs = GraphParser::parse_str(Rule::graph, src).map_err(|e| format!("{}", e))?;
-    if let Some(pair) = pairs.next().unwrap().into_inner().next() {
-        match pair.as_rule() {
-            Rule::metric_name => Ok(Graph::MetricName(pair.into_inner().next().unwrap().as_str().to_string())),
-            _ => unreachable!(),
+    let pair = pairs.next().ok_or("graph")?.into_inner().next().unwrap();
+    match pair.as_rule() {
+        Rule::host_metric => {
+            let mut inner = pair.into_inner();
+            let host_id = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
+            let metric_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
+            Ok(Graph::HostMetric(host_id, metric_name))
         }
-    } else {
-        Err("err".to_string())
+        _ => unreachable!(),
     }
 }
 
@@ -30,16 +32,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_metric_name() {
-        let sources = vec![("loadavg5", Graph::MetricName("loadavg5".to_string())),
-                           ("cpu.user.percentage", Graph::MetricName("cpu.user.percentage".to_string())),
-                           ("memory.*", Graph::MetricName("memory.*".to_string())),
-                           ("'custom.foo.bar.*'", Graph::MetricName("custom.foo.bar.*".to_string())),
-                           ("\"custom.foo.bar.*\"", Graph::MetricName("custom.foo.bar.*".to_string()))];
+    fn test_parse_graph() {
+        let sources =
+            vec![("host(22CXRB3pZmu, loadavg5)", Graph::HostMetric("22CXRB3pZmu".to_string(), "loadavg5".to_string())),
+                 ("host(22CXRB3pZmu, cpu.user.percentage)",
+                  Graph::HostMetric("22CXRB3pZmu".to_string(), "cpu.user.percentage".to_string())),
+                 ("host('22CXRB3pZmu', memory.*)", Graph::HostMetric("22CXRB3pZmu".to_string(), "memory.*".to_string())),
+                 ("host ( '22CXRB3pZmu', 'custom.foo.bar.*' )",
+                  Graph::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string())),
+                 ("host ( \"22CXRB3pZmu\",\"custom.foo.bar.*\")",
+                  Graph::HostMetric("22CXRB3pZmu".to_string(), "custom.foo.bar.*".to_string()))];
         for (source, expected) in sources {
             let got = parse_graph(source);
-            assert!(got.is_ok());
-            assert_eq!(got.unwrap(), expected);
+            assert_eq!(got, Ok(expected));
         }
     }
 }
