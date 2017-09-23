@@ -66,16 +66,16 @@ offset_metric = { "offset" ~ "(" ~ metrics ~ "," ~ factor ~ ")" }
 
 percentile_metric = { "percentile" ~ "(" ~ metrics ~ "," ~ double ~ ")" }
 
-duration_literal = ${ duration | "'" ~ duration ~ "'" | "\"" ~ duration ~ "\"" }
-duration = @{ '0'..'9'+ ~ ( "m" ~ "o"? | "h" | "d" | "w" | "y" ) }
+duration = ${ duration_inner | "'" ~ duration_inner ~ "'" | "\"" ~ duration_inner ~ "\"" }
+duration_inner = @{ '0'..'9'+ ~ ( "m" ~ "o"? | "h" | "d" | "w" | "y" ) }
 
-time_shift_metric = { "timeShift" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")" }
+time_shift_metric = { "timeShift" ~ "(" ~ metrics ~ "," ~ duration ~ ")" }
 
-moving_average_metric = { "movingAverage" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")" }
+moving_average_metric = { "movingAverage" ~ "(" ~ metrics ~ "," ~ duration ~ ")" }
 
-linear_regression_metric = { "linearRegression" ~ "(" ~ metrics ~ "," ~ duration_literal ~ ")" }
+linear_regression_metric = { "linearRegression" ~ "(" ~ metrics ~ "," ~ duration ~ ")" }
 
-time_left_forecast_metric = { "timeLeftForecast" ~ "(" ~ metrics ~ "," ~ duration_literal ~ "," ~ factor ~ ")" }
+time_left_forecast_metric = { "timeLeftForecast" ~ "(" ~ metrics ~ "," ~ duration ~ "," ~ factor ~ ")" }
 
 group_metric = { "group" ~ "(" ~ metrics ~ ( "," ~ metrics )* ~ ")" }
 

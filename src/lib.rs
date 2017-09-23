@@ -207,7 +207,7 @@ fn convert_percentage<I: Input>(pair: Pair<Rule, I>) -> Result<Percentage, Strin
 
 fn convert_duration<I: Input>(pair: Pair<Rule, I>) -> Result<Duration, String> {
     match pair.as_rule() {
-        Rule::duration => Ok(Duration(pair.as_str().to_string())),
+        Rule::duration_inner => Ok(Duration(pair.as_str().to_string())),
         r => Err(format!("invalid percentage: {:?}", r)),
     }
 }
