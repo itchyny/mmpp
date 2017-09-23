@@ -24,35 +24,35 @@ pub fn parse_graph(src: &str) -> Result<Metric, String> {
     convert_metrics(pairs.next().ok_or("metrics")?.into_inner().next().unwrap())
 }
 
+macro_rules! arg {
+    ($pairs:expr) => {
+        $pairs.next().unwrap().into_inner().next().unwrap().as_str().to_string()
+    }
+}
+
 fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
     match pair.as_rule() {
         Rule::host_metric => {
             let mut inner = pair.into_inner();
-            let host_id = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
-            let metric_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
-            Ok(Metric::HostMetric(host_id, metric_name))
+            Ok(Metric::HostMetric(arg!(inner), arg!(inner)))
         }
         Rule::service_metric => {
             let mut inner = pair.into_inner();
-            let service_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
-            let metric_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
-            Ok(Metric::ServiceMetric(service_name, metric_name))
+            Ok(Metric::ServiceMetric(arg!(inner), arg!(inner)))
         }
         Rule::role_metric => {
             let mut inner = pair.into_inner();
             let mut role_full_name = inner.next().unwrap().into_inner().next().unwrap().into_inner();
             let service_name = role_full_name.next().unwrap().as_str().to_string();
             let role_name = role_full_name.next().unwrap().as_str().to_string();
-            let metric_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
-            Ok(Metric::RoleMetric(service_name, role_name, metric_name))
+            Ok(Metric::RoleMetric(service_name, role_name, arg!(inner)))
         }
         Rule::role_slot_metric => {
             let mut inner = pair.into_inner();
             let mut role_full_name = inner.next().unwrap().into_inner().next().unwrap().into_inner();
             let service_name = role_full_name.next().unwrap().as_str().to_string();
             let role_name = role_full_name.next().unwrap().as_str().to_string();
-            let metric_name = inner.next().unwrap().into_inner().next().unwrap().as_str().to_string();
-            Ok(Metric::RoleSlotMetric(service_name, role_name, metric_name))
+            Ok(Metric::RoleSlotMetric(service_name, role_name, arg!(inner)))
         }
         Rule::group_metric => {
             let mut metrics = Vec::new();
