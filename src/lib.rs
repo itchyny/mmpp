@@ -125,11 +125,17 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
         }
         Rule::scale_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::Scale(Box::new(convert_metrics(next!(inner))?), convert_factor(arg!(inner))?))
+            Ok(Metric::Scale(
+                Box::new(convert_metrics(next!(inner))?),
+                convert_factor(arg!(inner))?,
+            ))
         }
         Rule::offset_metric => {
             let mut inner = pair.into_inner();
-            Ok(Metric::Offset(Box::new(convert_metrics(next!(inner))?), convert_factor(arg!(inner))?))
+            Ok(Metric::Offset(
+                Box::new(convert_metrics(next!(inner))?),
+                convert_factor(arg!(inner))?,
+            ))
         }
         Rule::percentile_metric => {
             let mut inner = pair.into_inner();
@@ -192,7 +198,10 @@ fn convert_factor<I: Input>(pair: Pair<Rule, I>) -> Result<Factor, String> {
         Rule::double => Ok(Factor::Double(pair.as_str().to_string())),
         Rule::fraction => {
             let mut inner = pair.into_inner();
-            Ok(Factor::Fraction(next!(inner).as_str().to_string(), next!(inner).as_str().to_string()))
+            Ok(Factor::Fraction(
+                next!(inner).as_str().to_string(),
+                next!(inner).as_str().to_string(),
+            ))
         }
         r => Err(format!("invalid factor: {:?}", r)),
     }
@@ -263,7 +272,11 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
         Metric::Product(metric) => if depth <= 2 {
             format!("product({})", pretty_print_inner(*metric, depth - 1, 0))
         } else {
-            format!("product(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
+            format!(
+                "product(\n{}\n{})",
+                pretty_print_inner(*metric, depth - 1, indent + 1),
+                indent_str
+            )
         },
         Metric::Diff(metric1, metric2) => format!(
             "diff(\n{},\n{}\n{})",
@@ -278,7 +291,11 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
             indent_str
         ),
         Metric::Scale(metric, factor) => if depth <= 2 {
-            format!("scale({}, {})", pretty_print_inner(*metric, depth - 1, 0), pretty_print_factor(factor))
+            format!(
+                "scale({}, {})",
+                pretty_print_inner(*metric, depth - 1, 0),
+                pretty_print_factor(factor)
+            )
         } else {
             format!(
                 "scale(\n{},\n  {}{}\n{})",
@@ -289,7 +306,11 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
             )
         },
         Metric::Offset(metric, factor) => if depth <= 2 {
-            format!("offset({}, {})", pretty_print_inner(*metric, depth - 1, 0), pretty_print_factor(factor))
+            format!(
+                "offset({}, {})",
+                pretty_print_inner(*metric, depth - 1, 0),
+                pretty_print_factor(factor)
+            )
         } else {
             format!(
                 "offset(\n{},\n  {}{}\n{})",
@@ -380,7 +401,11 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
         Metric::Stack(metric) => if depth <= 2 {
             format!("stack({})", pretty_print_inner(*metric, depth - 1, 0))
         } else {
-            format!("stack(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
+            format!(
+                "stack(\n{}\n{})",
+                pretty_print_inner(*metric, depth - 1, indent + 1),
+                indent_str
+            )
         },
         Metric::Alias(metric, display_name) => format!(
             "alias(\n{},\n  {}{}\n{})",
@@ -479,12 +504,16 @@ mod tests {
             ),
             (
                 "max(role(Blog:db, loadavg5))",
-                Metric::Max(Box::new(Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))),
+                Metric::Max(Box::new(
+                    Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string()),
+                )),
                 "max(role(Blog:db, loadavg5))",
             ),
             (
                 "min(role(Blog:db, loadavg5))",
-                Metric::Min(Box::new(Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))),
+                Metric::Min(Box::new(
+                    Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string()),
+                )),
                 "min(role(Blog:db, loadavg5))",
             ),
             (
@@ -617,7 +646,9 @@ mod tests {
             ),
             (
                 "stack(role(Blog:db, loadavg5))",
-                Metric::Stack(Box::new(Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string()))),
+                Metric::Stack(Box::new(
+                    Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string()),
+                )),
                 "stack(role(Blog:db, loadavg5))",
             ),
             (
@@ -662,7 +693,10 @@ mod tests {
             ),
             (
                 "alias( service(Blog, foo.bar), Blog )",
-                Metric::Alias(Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())), "Blog".to_string()),
+                Metric::Alias(
+                    Box::new(Metric::Service("Blog".to_string(), "foo.bar".to_string())),
+                    "Blog".to_string(),
+                ),
                 "alias(\n  service(Blog, foo.bar),\n  Blog\n)",
             ),
         ]
