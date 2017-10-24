@@ -8,6 +8,7 @@ metrics = { (
   | avg_metric
   | max_metric
   | min_metric
+  | sum_metric
   | product_metric
   | diff_metric
   | divide_metric
@@ -49,6 +50,8 @@ avg_metric = { "avg" ~ "(" ~ metrics ~ ")" }
 max_metric = { "max" ~ "(" ~ metrics ~ ")" }
 
 min_metric = { "min" ~ "(" ~ metrics ~ ")" }
+
+sum_metric = { "sum" ~ "(" ~ metrics ~ ")" }
 
 product_metric = { "product" ~ "(" ~ metrics ~ ")" }
 

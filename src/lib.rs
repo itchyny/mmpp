@@ -19,6 +19,7 @@ pub enum Metric {
     Avg(Box<Metric>),
     Max(Box<Metric>),
     Min(Box<Metric>),
+    Sum(Box<Metric>),
     Product(Box<Metric>),
     Diff(Box<Metric>, Box<Metric>),
     Divide(Box<Metric>, Box<Metric>),
@@ -104,6 +105,10 @@ fn convert_metrics<I: Input>(pair: Pair<Rule, I>) -> Result<Metric, String> {
         Rule::min_metric => {
             let mut inner = pair.into_inner();
             Ok(Metric::Min(Box::new(convert_metrics(next!(inner))?)))
+        }
+        Rule::sum_metric => {
+            let mut inner = pair.into_inner();
+            Ok(Metric::Sum(Box::new(convert_metrics(next!(inner))?)))
         }
         Rule::product_metric => {
             let mut inner = pair.into_inner();
@@ -230,6 +235,7 @@ fn calc_depth(metric: Metric) -> u64 {
         Metric::Avg(metric) => 1 + calc_depth(*metric),
         Metric::Max(metric) => 1 + calc_depth(*metric),
         Metric::Min(metric) => 1 + calc_depth(*metric),
+        Metric::Sum(metric) => 1 + calc_depth(*metric),
         Metric::Product(metric) => 1 + calc_depth(*metric),
         Metric::Diff(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
         Metric::Divide(metric1, metric2) => 1 + vec![calc_depth(*metric1), calc_depth(*metric2)].iter().max().unwrap(),
@@ -268,6 +274,11 @@ fn pretty_print_inner(metric: Metric, depth: u64, indent: usize) -> String {
             format!("min({})", pretty_print_inner(*metric, depth - 1, 0))
         } else {
             format!("min(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
+        },
+        Metric::Sum(metric) => if depth <= 2 {
+            format!("sum({})", pretty_print_inner(*metric, depth - 1, 0))
+        } else {
+            format!("sum(\n{}\n{})", pretty_print_inner(*metric, depth - 1, indent + 1), indent_str)
         },
         Metric::Product(metric) => if depth <= 2 {
             format!("product({})", pretty_print_inner(*metric, depth - 1, 0))
@@ -515,6 +526,13 @@ mod tests {
                     Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string()),
                 )),
                 "min(role(Blog:db, loadavg5))",
+            ),
+            (
+                "sum(role(Blog:db, loadavg5))",
+                Metric::Sum(Box::new(
+                    Metric::Role("Blog".to_string(), "db".to_string(), "loadavg5".to_string()),
+                )),
+                "sum(role(Blog:db, loadavg5))",
             ),
             (
                 "product(group(service(Blog, foo.bar), service(Blog, foo.baz)))",
